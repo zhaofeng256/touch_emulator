@@ -13,5 +13,6 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         startService(new Intent(this, TcpService.class));
+        startService(new Intent(this, TouchService.class));
     }
 }

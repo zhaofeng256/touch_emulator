@@ -12,6 +12,9 @@ import java.net.Socket;
 import java.util.Arrays;
 
 public class TcpService extends Service {
+
+    public static final String TAG = TcpClient.class.getSimpleName();
+
     public TcpService() {
     }
 
@@ -21,11 +24,6 @@ public class TcpService extends Service {
         throw new UnsupportedOperationException("Not yet implemented");
     }
 
-
-    Socket socket = null;
-    OutputStream os;
-    InetAddress address;
-    PrintWriter pw;
 
     @Override
     public int onStartCommand(Intent intent,int flags, int startId){
@@ -37,7 +35,7 @@ public class TcpService extends Service {
             //here the messageReceived method is implemented
             public void messageReceivedEx(TcpClient client, char[] buf, int len) {
                 //this method calls the onProgressUpdate
-                Log.d("TcpClient", "receive:" );
+                Log.d(TAG, "receive:" );
                 String msg = "echo from client";
                 client.send(msg.toCharArray(), msg.length());
             }

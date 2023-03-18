@@ -10,14 +10,14 @@ import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 
 public class TcpClient {
 
     public static final String TAG = TcpClient.class.getSimpleName();
     public static final String SERVER_IP = "192.168.40.1"; //server IP address
     public static final int SERVER_PORT = 65432;
-    // message to send to the server
-    private String mServerMessage;
+
     // sends message received notifications
     private OnMessageReceived mMessageListener;
     private OnMessageReceivedEx mMessageListenerEx;
@@ -80,6 +80,7 @@ public class TcpClient {
      */
     public void stopClient() {
 
+        Log.d(TAG,"stop Client");
         mRun = false;
 
         if (mBufferOut != null) {
@@ -90,7 +91,6 @@ public class TcpClient {
         mMessageListener = null;
         mBufferIn = null;
         mBufferOut = null;
-        mServerMessage = null;
 
     }
 
@@ -99,15 +99,15 @@ public class TcpClient {
         mRun = true;
 
         try {
+            Log.d(TAG, "C: Connecting...");
             //here you must put your computer's IP address.
             InetAddress serverAddress = InetAddress.getByName(SERVER_IP);
 
-            Log.d(TAG, "C: Connecting..." + TAG);
 
             //create a socket to make the connection with the server
-            Socket socket = new Socket();
-            try {
 
+            try {
+                Socket socket = new Socket();
                 socket.connect(new InetSocketAddress(serverAddress, SERVER_PORT), 3000);
                 //sends the message to the server
                 mBufferOut = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())), true);
@@ -131,17 +131,19 @@ public class TcpClient {
                     }
                 }
 
-            } catch (IOException e) {
-                Log.e(TAG, "connect failed", e);
-                stopClient();
+            } catch (SocketTimeoutException e) {
+                Log.e(TAG, "socket connect timeout");
+            } catch (Exception e) {
+                Log.e(TAG, "socket error", e);
             }
             //the socket must be closed. It is not possible to reconnect to this socket
             // after it is closed, which means a new socket instance has to be created.
 
         } catch (Exception e) {
             Log.e(TAG, "C: Error", e);
+        } finally {
+            stopClient();
         }
-
     }
 
     //Declare the interface. The method messageReceived(String message) will must be implemented in the Activity
