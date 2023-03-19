@@ -17,8 +17,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
-
-       // startService(new Intent(this, TcpService.class));
+        startService(new Intent(this, TcpService.class));
         startService(new Intent(this, TouchService.class));
 
         View myView = findViewById(android.R.id.content).getRootView();

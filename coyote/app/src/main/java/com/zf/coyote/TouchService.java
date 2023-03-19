@@ -29,10 +29,10 @@ public class TouchService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
 
 
-        new Thread(() -> {
-            test_multi_touch();
-
-        }).start();
+//        new Thread(() -> {
+//            test_multi_touch();
+//
+//        }).start();
         return START_STICKY;
     }
 

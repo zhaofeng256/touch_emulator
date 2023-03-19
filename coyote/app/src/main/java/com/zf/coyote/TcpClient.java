@@ -66,7 +66,7 @@ public class TcpClient {
             @Override
             public void run() {
                 if (mBufferOut != null) {
-                    Log.d(TAG, "Sending...");
+                    //Log.d(TAG, "Sending...");
                     mBufferOut.write(buf, 0, len);
                     mBufferOut.flush();
                 }
@@ -121,7 +121,7 @@ public class TcpClient {
                     try {
                         read_len = mBufferIn.read(read_buf);
 
-                        if (read_len != 0 && mMessageListenerEx != null) {
+                        if (read_len > 0 && mMessageListenerEx != null) {
                             //call the method messageReceived from MyActivity class
                             mMessageListenerEx.messageReceivedEx(this, read_buf, read_len);
                         }
