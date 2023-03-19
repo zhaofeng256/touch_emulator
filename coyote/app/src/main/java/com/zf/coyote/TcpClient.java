@@ -99,7 +99,7 @@ public class TcpClient {
         mRun = true;
 
         try {
-            Log.d(TAG, "C: Connecting...");
+            Log.d(TAG, "connecting to server...");
             //here you must put your computer's IP address.
             InetAddress serverAddress = InetAddress.getByName(SERVER_IP);
 
