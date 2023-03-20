@@ -29,10 +29,29 @@ public class TouchService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
 
 
-//        new Thread(() -> {
-//            test_multi_touch();
-//
-//        }).start();
+        new Thread(() -> {
+            while (true) {
+                synchronized (TcpService.sync_key) {
+                    try {
+                        // Calling wait() will block this thread until another thread
+                        // calls notify() on the object.
+                        while (TcpService.data_list.isEmpty())
+                            TcpService.sync_key.wait();
+
+                        //test_multi_touch();
+                        while (!TcpService.data_list.isEmpty()) {
+                            Object obj = TcpService.data_list.remove(0);
+                            TcpService.TcpData data = TcpService.TcpData.class.cast(obj);
+                            Log.d(TAG, " id=" + data.id + " type=" + data.type + " param1=" + data.param1 + " param2=" + data.param2);
+                        }
+                    } catch (InterruptedException e) {
+                        // Happens if someone interrupts your thread.
+                    }
+
+                }
+            }
+
+        }).start();
         return START_STICKY;
     }
 

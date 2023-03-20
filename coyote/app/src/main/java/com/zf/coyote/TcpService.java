@@ -6,11 +6,14 @@ import android.os.IBinder;
 import android.util.Log;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 
 public class TcpService extends Service {
 
     public static final String TAG = TcpClient.class.getSimpleName();
+    public static ArrayList data_list = new ArrayList();
 
+    public static Object sync_key = new Object();
     public TcpService() {
     }
 
@@ -38,17 +41,25 @@ public class TcpService extends Service {
             //here the messageReceived method is implemented
             public void messageReceivedEx(TcpClient client, char[] buf, int len) {
                 //this method calls the onProgressUpdate
-                Log.d(TAG, "receive len=" + len );
+                //Log.d(TAG, "receive len=" + len );
 
                 TcpData data = new TcpData();
-                byte [] bs = new String(buf).getBytes();
+                byte [] bs = new byte[len];
+                for (int i = 0; i < len; i++)
+                    bs[i] = (byte) buf[i];
+
                 ByteBuffer bb = ByteBuffer.wrap(bs);
                 for (int i = 0; i < len / data.size(); i++) {
                     data.id = Integer.reverseBytes(bb.getInt());
                     data.type = Integer.reverseBytes(bb.getInt());
                     data.param1 = Integer.reverseBytes(bb.getInt());
                     data.param2 = Integer.reverseBytes(bb.getInt());
-                    Log.d(TAG,"id="+data.id+" type="+data.type+" param1="+data.param1+" param2="+data.param2);
+                    //Log.d(TAG,bs.length + " id="+data.id+" type="+data.type+" param1="+data.param1+" param2="+data.param2);
+                }
+
+                synchronized(sync_key) {
+                    TcpService.data_list.add(data);
+                    TcpService.sync_key.notify();
                 }
 
                 String msg = "echo";
@@ -60,10 +71,11 @@ public class TcpService extends Service {
             @Override
             public void run() {
                 while (true) {
-                 mTcpClient.run();
+                    mTcpClient.run();
                 }
             }
         };
+
         Thread thread = new Thread(runnable);
         thread.start();
 
