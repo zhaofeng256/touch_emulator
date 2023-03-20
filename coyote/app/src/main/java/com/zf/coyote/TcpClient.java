@@ -1,15 +1,21 @@
 package com.zf.coyote;
 
+import static com.zf.coyote.TcpService.charToHex;
+
 import android.util.Log;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketOption;
 import java.net.SocketTimeoutException;
 
 public class TcpClient {
@@ -28,7 +34,7 @@ public class TcpClient {
     // used to read messages from the server
     private BufferedReader mBufferIn;
 
-    char [] read_buf = new char[1024];
+    byte [] read_buf = new byte[1024];
     int read_len = 0;
 
     /**
@@ -108,23 +114,35 @@ public class TcpClient {
 
             try {
                 Socket socket = new Socket();
+
+                socket.setReceiveBufferSize(1024);
+//                SocketOption opt;
+//                opt.opt
+//                socket.setOption(SocketOption);
+//                socket.setKeepAlive();
+//                socket.setSoLinger();
+//                socket.setTcpNoDelay(true);
+//                socket.setSoTimeout();
+//                socket.setSendBufferSize(1);
                 socket.connect(new InetSocketAddress(serverAddress, SERVER_PORT), 3000);
                 //sends the message to the server
-                mBufferOut = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())), true);
+                //mBufferOut = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())), true);
 
                 //receives the message which the server sends back
-                mBufferIn = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
+                //mBufferIn = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                InputStream mInputStream  = socket.getInputStream();
+                OutputStream mOutputStream = socket.getOutputStream();
 
                 //in this while the client listens for the messages sent by the server
                 while (mRun) {
                     try {
-                        read_len = mBufferIn.read(read_buf);
-
-                        if (read_len > 0 && mMessageListenerEx != null) {
-                            //call the method messageReceived from MyActivity class
-                            mMessageListenerEx.messageReceivedEx(this, read_buf, read_len);
-                        }
+//                        read_len = mBufferIn.read(read_buf, 0,15);
+                        read_len= mInputStream.read(read_buf);
+                        Log.d(TAG, "rec len=" + read_len + " " + charToHex(read_buf, read_len));
+//                        if (read_len > 0 && mMessageListenerEx != null) {
+//                            //call the method messageReceived from MyActivity class
+//                            mMessageListenerEx.messageReceivedEx(this, read_buf, read_len);
+//                        }
                     } catch (IOException e) {
                         Log.d(TAG, "lost connect");
                         stopClient();

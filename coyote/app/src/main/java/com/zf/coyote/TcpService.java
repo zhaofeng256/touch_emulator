@@ -41,7 +41,14 @@ public class TcpService extends Service {
             //here the messageReceived method is implemented
             public void messageReceivedEx(TcpClient client, char[] buf, int len) {
                 //this method calls the onProgressUpdate
-                Log.d(TAG, "receive len=" + len );
+
+
+                if (len < 15) {
+                    String msg = "not enough";
+                    client.send(msg.toCharArray(), msg.length());
+
+                    return;
+                }
 
                 TcpData data = new TcpData();
                 byte [] bs = new byte[len];
@@ -53,9 +60,9 @@ public class TcpService extends Service {
                     data.param1 = Bytes2Int(Arrays.copyOfRange(bs, i*15+5, i*15+9));
                     data.param2 = Bytes2Int(Arrays.copyOfRange(bs, i*15+9, i*15+13));
                     data.checksum = Bytes2Short(Arrays.copyOfRange(bs, i*15+13, i*15+15));
-                    Log.d(TAG,bs.length + " id="+data.id+" type="+(int)(data.type)+" param1="+
-                            data.param1+" param2="+data.param2+ " checksum="+
-                            String.format("0x%04X", data.checksum));
+//                    Log.d(TAG,bs.length + " id="+data.id+" type="+(int)(data.type)+" param1="+
+//                            data.param1+" param2="+data.param2+ " checksum="+
+//                            String.format("0x%04X", data.checksum));
 
                     short chk = calc_chksum(bs, 13);
                     if (chk == data.checksum) {
@@ -136,5 +143,19 @@ public class TcpService extends Service {
         s = s & 0xffff + s >> 16;
 
         return (short)(~s & 0xffff);
+    }
+
+    static public String charToHex(byte[] buf, int len) {
+        // Returns hex String representation of byte b
+        char hexDigit[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8',
+                '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+
+        String str = "";
+        for (int i = 0; i< len;i++) {
+
+            char[] array = { hexDigit[(buf[i] >> 4) & 0x0f], hexDigit[buf[i] & 0x0f] };
+            str = str + new String(array);
+        }
+        return str;
     }
 }
