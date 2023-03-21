@@ -20,11 +20,11 @@ public class TcpService extends Service {
     static class TcpData extends cStruct {
         public TcpData() {
             super(new field[]{
-                new field("id", 4),
-                new field("type", 1),
-                new field("param1", 4),
-                new field("param2", 4),
-                new field("checksum", 2)});
+                    new field("id", 4),
+                    new field("type", 1),
+                    new field("param1", 4),
+                    new field("param2", 4),
+                    new field("checksum", 2)});
         }
     }
 
@@ -58,26 +58,19 @@ public class TcpService extends Service {
         byte[] bs = new byte[len];
         for (int i = 0; i < len; i++)
             bs[i] = (byte) buf[i];
-        for (int i = 0; i < len / data.size; i++) {
 
+        for (int i = 0; i < len / data.size; i++) {
             for (String name : data.names.keySet()) {
                 byte[] tmp = Arrays.copyOfRange(bs, i * data.size + data.offset(name),
-                        i * data.size + data.size(name));
+                        i * data.size + data.offset(name) + data.size(name));
                 data.set(name, tmp);
             }
-            Log.d(TAG, " id=" + data.get("id") + " type=" + data.get("type") +
-                    " param1=" + data.get("param1") + " param2=" + data.get("param2"));
-//            for (int j = 0; j < data.fields.size();j++){
-//                Arrays.copyOfRange(bs, i * data.size + data.fields.get(j).offset, i * data.size + data.fields.get(j).size);}
-//            byte  type = Arrays.copyOfRange(bs, i * data.size, i * data.size + data.type.length);
-//            data.param1 = bytes2Int(Arrays.copyOfRange(bs, i * 15 + 5, i * 15 + 9));
-//            data.param2 = bytes2Int(Arrays.copyOfRange(bs, i * 15 + 9, i * 15 + 13));
-//            data.checksum = bytes2Short(Arrays.copyOfRange(bs, i * 15 + 13, i * 15 + 15));
-//                    Log.d(TAG,bs.length + " id="+data.id+" type="+(int)(data.type)+" param1="+
-//                            data.param1+" param2="+data.param2+ " checksum="+
-//                            String.format("0x%04X", data.checksum));
 
-            short chk = calc_Checksum(bs, data.offset("checksum"));
+            Log.d(TAG, "id=" + data.get("id") + " type=" + data.get("type") +
+                    " param1=" + data.get("param1") + " param2=" + data.get("param2"));
+
+            int chk = calc_Checksum(Arrays.copyOfRange(bs, i * data.size,
+                    i * data.size + data.offset("checksum")), data.offset("checksum"));
 
             if (chk == data.get("checksum")) {
                 byte[] echo = {0};
@@ -95,24 +88,30 @@ public class TcpService extends Service {
         }
     };
 
-    public short calc_Checksum(byte[] data, int len) {
+    public int calc_Checksum(byte[] data, int len) {
 
-        int sum = 0;
+        int s = 0;
         int i = 0;
 
-        while (i + 1 < len) {
-            sum += data[i];
-            sum += data[i + 1] << 8;
+        while (i + 1 < 13) {
+            s += (int)data[i]& 0xff;
+            s += ((int)data[i+1]& 0xff) << 8;
             i += 2;
         }
 
-        if (i + 1 == len) {
-            sum += data[i];
+        if (i + 1 == 13) {
+            s += (int)data[i]& 0xff;
         }
 
-        sum = sum & 0xffff + sum >> 16;
+        s = s & 0xffff + (s >> 16) ;
+        s = (~s)  & 0xffff;
 
-        return (short) (~sum & 0xffff);
+//        byte [] sum = new byte[2];
+//        sum[0] = (byte)(s & 0xff);
+//        sum[1] = (byte)((s >> 8) & 0xff);
+//        Log.d(TAG, "checksum is " + charToHex(sum, 2));
+
+        return s;
     }
 
     static public String charToHex(byte[] buf, int len) {
@@ -121,7 +120,7 @@ public class TcpService extends Service {
                 '9', 'a', 'b', 'c', 'd', 'e', 'f'};
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < len; i++) {
-            sb.append((hexDigit[(buf[i] >> 4) & 0x0f]));
+            sb.append((char)(hexDigit[(buf[i] >> 4) & 0x0f]));
             sb.append((char)(hexDigit[buf[i] & 0x0f]));
             sb.append(' ');
         }
