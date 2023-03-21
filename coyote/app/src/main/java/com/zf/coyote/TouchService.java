@@ -42,7 +42,8 @@ public class TouchService extends Service {
                         while (!TcpService.data_list.isEmpty()) {
                             Object obj = TcpService.data_list.remove(0);
                             TcpService.TcpData data = TcpService.TcpData.class.cast(obj);
-                            Log.d(TAG, " id=" + data.id + " type=" + data.type + " param1=" + data.param1 + " param2=" + data.param2);
+                            Log.d(TAG, " id=" + data.get("id") + " type=" + data.get("type") +
+                                    " param1=" + data.get("param1") + " param2=" + data.get("param2"));
                         }
                     } catch (InterruptedException e) {
                         // Happens if someone interrupts your thread.

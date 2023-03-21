@@ -3,119 +3,110 @@ package com.zf.coyote;
 import static com.zf.coyote.TcpService.charToHex;
 
 import android.util.Log;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
+
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.ObjectInputStream;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketOption;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
+import java.util.Arrays;
 
 public class TcpClient {
 
     public static final String TAG = TcpClient.class.getSimpleName();
     public static final String SERVER_IP = "192.168.40.1"; //server IP address
     public static final int SERVER_PORT = 65432;
-
-    // sends message received notifications
-    private OnMessageReceived mMessageListener;
-    private OnMessageReceivedEx mMessageListenerEx;
-    // while this is true, the server will continue running
-    private boolean mRun = false;
-    // used to send messages
-    private PrintWriter mBufferOut;
-    // used to read messages from the server
-    private BufferedReader mBufferIn;
-
-    byte [] read_buf = new byte[1024];
+    private final OnReceived received;
+    private boolean running = false;
+    InputStream input_stream;
+    OutputStream output_stream;
+    static byte[] read_buf = new byte[1024];
     int read_len = 0;
 
-    /**
-     * Constructor of the class. OnMessagedReceived listens for the messages received from server
-     */
-    public TcpClient(OnMessageReceived listener) {
-        mMessageListener = listener;
-    }
-    public TcpClient(OnMessageReceivedEx listener) {
-        mMessageListenerEx = listener;
-    }
-    /**
-     * Sends the message entered by client to the server
-     *
-     * @param message text entered by client
-     */
-    public void sendMessage(final String message) {
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                if (mBufferOut != null) {
-                    Log.d(TAG, "Sending: " + message);
-                    mBufferOut.println(message);
-                    mBufferOut.flush();
-                }
-            }
-        };
-        Thread thread = new Thread(runnable);
-        thread.start();
-    }
-
-
-    public void send( char [] buf, int len) {
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                if (mBufferOut != null) {
-                    //Log.d(TAG, "Sending...");
-                    mBufferOut.write(buf, 0, len);
-                    mBufferOut.flush();
-                }
-            }
-        };
-        Thread thread = new Thread(runnable);
-        thread.start();
-    }
-    /**
-     * Close the connection and release the members
-     */
-    public void stopClient() {
-
-        Log.d(TAG,"stop Client");
-        mRun = false;
-
-        if (mBufferOut != null) {
-            mBufferOut.flush();
-            mBufferOut.close();
-        }
-
-        mMessageListener = null;
-        mBufferIn = null;
-        mBufferOut = null;
-
+    public TcpClient(OnReceived listener) {
+        received = listener;
     }
 
     public void run() {
 
-        mRun = true;
+        running = true;
 
         try {
             Log.d(TAG, "connecting to server...");
-            //here you must put your computer's IP address.
+
+            Socket socket = new Socket();
+            socket.setReceiveBufferSize(1024);
             InetAddress serverAddress = InetAddress.getByName(SERVER_IP);
+            socket.connect(new InetSocketAddress(serverAddress, SERVER_PORT), 3000);
+            input_stream = socket.getInputStream();
+            output_stream = socket.getOutputStream();
 
+            while (running) {
+                read_len = input_stream.read(read_buf);
+                Log.d(TAG, "rec len=" + read_len + " " + charToHex(read_buf, read_len));
+                if (read_len > 0 && received != null) {
+                    received.dataHandler(this, read_buf, read_len);
+                }
+                if (-1 == read_len) {
+                    Log.d(TAG, "server lost connect");
+                }
+            }
+        } catch (SocketTimeoutException e) {
+            Log.e(TAG, "socket connect timeout");
+        } catch (SocketException e) {
+            Log.e(TAG, "SocketException" + e);
+            //throw new RuntimeException(e);
+        } catch (UnknownHostException e) {
+            Log.e(TAG, "UnknownHostException" + e);
+        } catch (IOException e) {
+            Log.d(TAG, "socket IOException");
+            //throw new RuntimeException(e);
+        } finally {
+            stop();
+        }
+    }
 
-            //create a socket to make the connection with the server
+    public void send(byte[] buf, int len) {
+        if (output_stream != null) {
+            //Log.d(TAG, "Sending...");
+            try {
+                output_stream.write(buf, 0, len);
+                output_stream.flush();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    public void stop() {
+
+        Log.d(TAG, "stop Client");
+        running = false;
+
+        if (output_stream != null) {
 
             try {
-                Socket socket = new Socket();
+                output_stream.flush();
+                output_stream.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
 
-                socket.setReceiveBufferSize(1024);
+        input_stream = null;
+        output_stream = null;
+    }
+
+    public interface OnReceived {
+        void dataHandler(TcpClient client, byte[] buf, int len);
+    }
+}
+
+
 //                SocketOption opt;
 //                opt.opt
 //                socket.setOption(SocketOption);
@@ -124,56 +115,12 @@ public class TcpClient {
 //                socket.setTcpNoDelay(true);
 //                socket.setSoTimeout();
 //                socket.setSendBufferSize(1);
-                socket.connect(new InetSocketAddress(serverAddress, SERVER_PORT), 3000);
-                //sends the message to the server
-                //mBufferOut = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())), true);
+//    private PrintWriter mBufferOut;
 
-                //receives the message which the server sends back
-                //mBufferIn = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                InputStream mInputStream  = socket.getInputStream();
-                OutputStream mOutputStream = socket.getOutputStream();
+//    private BufferedReader mBufferIn;
 
-                //in this while the client listens for the messages sent by the server
-                while (mRun) {
-                    try {
-//                        read_len = mBufferIn.read(read_buf, 0,15);
-                        read_len= mInputStream.read(read_buf);
-                        Log.d(TAG, "rec len=" + read_len + " " + charToHex(read_buf, read_len));
-//                        if (read_len > 0 && mMessageListenerEx != null) {
-//                            //call the method messageReceived from MyActivity class
-//                            mMessageListenerEx.messageReceivedEx(this, read_buf, read_len);
-//                        }
-                    } catch (IOException e) {
-                        Log.d(TAG, "lost connect");
-                        stopClient();
-                    }
-                }
-
-            } catch (SocketTimeoutException e) {
-                Log.e(TAG, "socket connect timeout");
-            } catch (Exception e) {
-                Log.e(TAG, "socket error", e);
-            }
-            //the socket must be closed. It is not possible to reconnect to this socket
-            // after it is closed, which means a new socket instance has to be created.
-
-        } catch (Exception e) {
-            Log.e(TAG, "C: Error", e);
-        } finally {
-            stopClient();
-        }
-    }
-
-    //Declare the interface. The method messageReceived(String message) will must be implemented in the Activity
-    //class at on AsyncTask doInBackground
-    public interface OnMessageReceived {
-        void messageReceived(TcpClient client, String message);
-
-    }
-    public interface OnMessageReceivedEx {
-        void messageReceivedEx(TcpClient client, char [] buf, int len);
-    }
-}
+//mBufferOut = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())), true);
+//mBufferIn = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
 //                        while (!socket.isConnected()) {
 //                            try {
