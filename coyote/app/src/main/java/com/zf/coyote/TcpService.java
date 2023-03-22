@@ -55,13 +55,9 @@ public class TcpService extends Service {
         }
 
         TcpData data = new TcpData();
-        byte[] bs = new byte[len];
-        for (int i = 0; i < len; i++)
-            bs[i] = (byte) buf[i];
-
         for (int i = 0; i < len / data.size; i++) {
             for (String name : data.names.keySet()) {
-                byte[] tmp = Arrays.copyOfRange(bs, i * data.size + data.offset(name),
+                byte[] tmp = Arrays.copyOfRange(buf, i * data.size + data.offset(name),
                         i * data.size + data.offset(name) + data.size(name));
                 data.set(name, tmp);
             }
@@ -69,7 +65,7 @@ public class TcpService extends Service {
             Log.d(TAG, "id=" + data.get("id") + " type=" + data.get("type") +
                     " param1=" + data.get("param1") + " param2=" + data.get("param2"));
 
-            int chk = calc_Checksum(Arrays.copyOfRange(bs, i * data.size,
+            int chk = calc_Checksum(Arrays.copyOfRange(buf, i * data.size,
                     i * data.size + data.offset("checksum")), data.offset("checksum"));
 
             if (chk == data.get("checksum")) {
@@ -93,13 +89,13 @@ public class TcpService extends Service {
         int s = 0;
         int i = 0;
 
-        while (i + 1 < 13) {
+        while (i + 1 < len) {
             s += (int)data[i]& 0xff;
             s += ((int)data[i+1]& 0xff) << 8;
             i += 2;
         }
 
-        if (i + 1 == 13) {
+        if (i + 1 == len) {
             s += (int)data[i]& 0xff;
         }
 
@@ -120,8 +116,8 @@ public class TcpService extends Service {
                 '9', 'a', 'b', 'c', 'd', 'e', 'f'};
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < len; i++) {
-            sb.append((char)(hexDigit[(buf[i] >> 4) & 0x0f]));
-            sb.append((char)(hexDigit[buf[i] & 0x0f]));
+            sb.append(hexDigit[(buf[i] >> 4) & 0x0f]);
+            sb.append(hexDigit[buf[i] & 0x0f]);
             sb.append(' ');
         }
         return sb.toString();

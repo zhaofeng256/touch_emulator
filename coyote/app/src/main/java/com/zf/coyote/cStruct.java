@@ -1,5 +1,6 @@
 package com.zf.coyote;
 
+import java.util.Arrays;
 import java.util.HashMap;
 
 public class cStruct {
@@ -24,6 +25,11 @@ public class cStruct {
             this.size += f.size;
             names.put(f.name, d);
         }
+    }
+    public byte[] _get(String name) {
+        descriptor f = names.get(name);
+        assert f != null;
+        return Arrays.copyOf(f.data, f.size);
     }
 
     public int get(String name) {
