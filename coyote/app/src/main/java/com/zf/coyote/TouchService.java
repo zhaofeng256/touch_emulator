@@ -25,6 +25,7 @@ public class TouchService extends Service {
     Point point_ds = new Point(500+212, 800+212);
     Point point_wasd_start = new Point(500, 800);
     Point point_wasd_end = new Point(500, 800);
+    Point point_wasd_end_old = new Point(500, 800);
     Point point_wasd_now = new Point(500, 800);
     Point point_mouse_start = new Point(743, 409);
     Point point_mouse_end = new Point();
@@ -52,9 +53,31 @@ public class TouchService extends Service {
         // TODO: Return the communication channel to the service.
         throw new UnsupportedOperationException("Not yet implemented");
     }
+    void test() {
 
+        Point p = new Point(500, 500);
+        int slot = action_down(p);
+        for (int i = 0; i < 10; i++) {
+            p.x +=  20 * i;
+            p.y +=  20 * i;
+            action_move(p, slot);
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        action_up(p, slot);
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+
 
 
         new Thread(() -> {
@@ -77,7 +100,6 @@ public class TouchService extends Service {
                         while (TcpService.data_list.isEmpty())
                             TcpService.sync_key.wait(100);
 
-                        //test_multi_touch();
                         if (!TcpService.data_list.isEmpty()) {
                             TcpService.TcpData data = TcpService.data_list.remove(0);
 
@@ -102,18 +124,20 @@ public class TouchService extends Service {
                                 if (is_wasd(param1)) {
                                     set_wasd_status(param1, param2);
                                     get_wasd_end();
-                                    get_wasd_step(point_wasd_now, point_wasd_end, 5);
+                                    if (wasd_end_changed())
+                                        get_wasd_step(point_wasd_now, point_wasd_end, 5);
+                                    back_wasd_end();
 
                                     if (KeyEvent.KEY_DOWN == param2) {
+
                                         if (!last_wasd_pressed) {
                                             point_wasd_now.x = point_wasd_start.x;
                                             point_wasd_now.y = point_wasd_start.y;
                                             wasd_slot = action_down(point_wasd_now);
-                                        } else{
-                                            point_wasd_now.x += wasd_step.x;
-                                            point_wasd_now.y += wasd_step.y;
-                                            action_move(point_wasd_now, wasd_slot);
                                         }
+
+                                        wasd_one_step();
+
                                     } else if (KeyEvent.KEY_UP == param2) {
                                         if (last_wasd_pressed && is_wasd_all_release()) {
                                             action_up(point_wasd_now, wasd_slot);
@@ -145,9 +169,12 @@ public class TouchService extends Service {
                     }
 
                 }
+
             }
 
         }).start();
+
+
         return START_STICKY;
     }
 
@@ -202,6 +229,31 @@ public class TouchService extends Service {
 
     }
 
+    public boolean wasd_end_changed() {
+        return point_wasd_end_old.x != point_wasd_end.x || point_wasd_end_old.y != point_wasd_end.y;
+    }
+
+    void back_wasd_end() {
+        point_wasd_end_old.x = point_wasd_end.x;
+        point_wasd_end_old.y = point_wasd_end.y;
+    }
+    public boolean isZero(double value, double threshold){
+        return value >= -threshold && value <= threshold;
+    }
+    void wasd_one_step() {
+        float x = point_wasd_end.x - point_wasd_now.x;
+        float y = point_wasd_end.y - point_wasd_now.y;
+        if(Math.abs(wasd_step.x) > Math.abs(x))
+            wasd_step.x = x;
+        if(Math.abs(wasd_step.y) > Math.abs(y))
+            wasd_step.y = y;
+
+        if (!(isZero(wasd_step.x, 0.1) && isZero(wasd_step.y, 0.1))) {
+            point_wasd_now.x += wasd_step.x;
+            point_wasd_now.y += wasd_step.y;
+            action_move(point_wasd_now, wasd_slot);
+        }
+    }
     public int get_slot() {
         int i = 0;
         while (slots[i++]);
