@@ -1,5 +1,7 @@
 package com.zf.coyote;
 
+import static com.zf.coyote.definition.*;
+
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
@@ -7,7 +9,6 @@ import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-
 
 public class TcpService extends Service {
 
@@ -20,11 +21,11 @@ public class TcpService extends Service {
     static class TcpData extends cStruct {
         public TcpData() {
             super(new field[]{
-                    new field("id", 4),
-                    new field("type", 1),
-                    new field("param1", 4),
-                    new field("param2", 4),
-                    new field("checksum", 2)});
+                    new field(V_ID, 4),
+                    new field(V_TYPE, 1),
+                    new field(V_PARAM1, 4),
+                    new field(V_PARAM2, 4),
+                    new field(V_CHECKSUM, 2)});
         }
     }
 
@@ -62,13 +63,13 @@ public class TcpService extends Service {
                 data.set(name, tmp);
             }
 
-            Log.d(TAG, "id=" + data.get("id") + " type=" + data.get("type") +
-                    " param1=" + data.get("param1") + " param2=" + data.get("param2"));
+            Log.d(TAG, "id=" + data.get(V_ID) + " type=" + data.get(V_TYPE) +
+                    " param1=" + data.get(V_PARAM1) + " param2=" + data.get(V_PARAM2));
 
             int chk = calc_Checksum(Arrays.copyOfRange(buf, i * data.size,
-                    i * data.size + data.offset("checksum")), data.offset("checksum"));
+                    i * data.size + data.offset(V_CHECKSUM)), data.offset(V_CHECKSUM));
 
-            if (chk == data.get("checksum")) {
+            if (chk == data.get(V_CHECKSUM)) {
                 byte[] echo = {0};
                 client.send(echo, 1);
 
