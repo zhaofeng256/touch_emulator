@@ -47,7 +47,7 @@ public class TcpClient {
 
             while (running) {
                 read_len = input_stream.read(read_buf);
-                Log.d(TAG, "rec len=" + read_len + " " + charToHex(read_buf, read_len));
+                //Log.d(TAG, "rec len=" + read_len + " " + charToHex(read_buf, read_len));
                 if (read_len > 0 && received != null) {
                     received.dataHandler(this, read_buf, read_len);
                 }

@@ -63,8 +63,8 @@ public class TcpService extends Service {
                 data.set(name, tmp);
             }
 
-            Log.d(TAG, "id=" + data.get(V_ID) + " type=" + data.get(V_TYPE) +
-                    " param1=" + data.get(V_PARAM1) + " param2=" + data.get(V_PARAM2));
+            //Log.d(TAG, "id=" + data.get(V_ID) + " type=" + data.get(V_TYPE) +
+            //        " param1=" + data.get(V_PARAM1) + " param2=" + data.get(V_PARAM2));
 
             int chk = calc_Checksum(Arrays.copyOfRange(buf, i * data.size,
                     i * data.size + data.offset(V_CHECKSUM)), data.offset(V_CHECKSUM));

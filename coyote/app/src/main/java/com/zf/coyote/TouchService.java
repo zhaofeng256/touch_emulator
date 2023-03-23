@@ -14,26 +14,26 @@ import android.view.MotionEvent;
 public class TouchService extends Service {
 
     public static final String TAG = TouchService.class.getSimpleName();
-    static Instrumentation mInst;
-    Point point_w = new Point(330, 820);
-    Point point_a = new Point(330, 820);
-    Point point_s = new Point(330, 820);
-    Point point_d = new Point(330, 820);
-    Point point_aw = new Point(330, 820);
-    Point point_dw = new Point(330, 820);
-    Point point_as = new Point(330, 820);
-    Point point_ds = new Point(330, 820);
-    Point point_wasd_start = new Point(330, 500);
-    Point point_wasd_end = point_wasd_start;
-    Point point_wasd_now = point_wasd_start;
+    static Instrumentation mInst = new Instrumentation();
+    Point point_w = new Point(500, 500);
+    Point point_a = new Point(200, 800);
+    Point point_s = new Point(500, 1100);
+    Point point_d = new Point(800, 800);
+    Point point_aw = new Point(500-212, 800-212);
+    Point point_dw = new Point(500+212, 800-212);
+    Point point_as = new Point(500-212, 800+212);
+    Point point_ds = new Point(500+212, 800+212);
+    Point point_wasd_start = new Point(500, 800);
+    Point point_wasd_end = new Point(500, 800);
+    Point point_wasd_now = new Point(500, 800);
     Point point_mouse_start = new Point(743, 409);
-    Point point_mouse_end = point_mouse_start;
+    Point point_mouse_end = new Point();
 
     static class Step extends Point {
         public int steps;
     }
 
-    Step wasd_step;
+    Step wasd_step = new Step();
     long mouse_timeout;
     boolean mouse_pressed = false;
     boolean w_pressed = false;
@@ -75,19 +75,19 @@ public class TouchService extends Service {
 //                        3.如wasd未全部抬起 && 未到达终点 向终点移动一格
 
                         while (TcpService.data_list.isEmpty())
-                            TcpService.sync_key.wait(25);
+                            TcpService.sync_key.wait(100);
 
                         //test_multi_touch();
                         if (!TcpService.data_list.isEmpty()) {
-                            TcpService.TcpData data = (TcpService.TcpData) TcpService.data_list.remove(0);
+                            TcpService.TcpData data = TcpService.data_list.remove(0);
 
                             int id = data.get(V_ID);
                             int type = data.get(V_TYPE);
                             int param1 = data.get(V_PARAM1);
                             int param2 = data.get(V_PARAM2);
 
-                            Log.d(TAG, " id=" + id + " type=" + type +
-                                    " param1=" + param1 + " param2=" + param2);
+//                            Log.d(TAG, " id=" + id + " type=" + type +
+//                                    " param1=" + param1 + " param2=" + param2);
 
                             if (EventType.TYPE_MOUSE == type) {
                                 point_mouse_end.x = param1;
@@ -101,16 +101,25 @@ public class TouchService extends Service {
                             } else if (EventType.TYPE_KEYBOARD == type) {
                                 if (is_wasd(param1)) {
                                     set_wasd_status(param1, param2);
-                                    point_wasd_end = get_wasd_end();
+                                    get_wasd_end();
+                                    get_wasd_step(point_wasd_now, point_wasd_end, 5);
 
                                     if (KeyEvent.KEY_DOWN == param2) {
                                         if (!last_wasd_pressed) {
-                                            wasd_slot = action_down(point_wasd_start);
-                                            wasd_step = get_step(point_mouse_start, point_mouse_end, 10);
+                                            point_wasd_now.x = point_wasd_start.x;
+                                            point_wasd_now.y = point_wasd_start.y;
+                                            wasd_slot = action_down(point_wasd_now);
+                                        } else{
+                                            point_wasd_now.x += wasd_step.x;
+                                            point_wasd_now.y += wasd_step.y;
+                                            action_move(point_wasd_now, wasd_slot);
                                         }
                                     } else if (KeyEvent.KEY_UP == param2) {
-                                        if (last_wasd_pressed && is_wasd_all_release())
-                                            action_up(point_wasd_end, wasd_slot);
+                                        if (last_wasd_pressed && is_wasd_all_release()) {
+                                            action_up(point_wasd_now, wasd_slot);
+                                            point_wasd_now.x = point_wasd_start.x;
+                                            point_wasd_now.y = point_wasd_start.y;
+                                        }
                                     }
 
                                     last_wasd_pressed = !is_wasd_all_release();
@@ -124,11 +133,11 @@ public class TouchService extends Service {
                             action_up(point_mouse_end, mouse_slot);
                         }
 
-                        if (!is_wasd_all_release() && wasd_step.steps-- > 0) {
-                            point_wasd_now.x += wasd_step.x;
-                            point_wasd_now.y += wasd_step.y;
-                            action_move(point_wasd_now, wasd_slot);
-                        }
+//                        if (!is_wasd_all_release() && wasd_step.steps-- > 0) {
+//                            point_wasd_now.x += wasd_step.x;
+//                            point_wasd_now.y += wasd_step.y;
+//                            action_move(point_wasd_now, wasd_slot);
+//                        }
 
                     } catch (InterruptedException e) {
                         // Happens if someone interrupts your thread.
@@ -161,30 +170,41 @@ public class TouchService extends Service {
         return !(w_pressed || a_pressed || s_pressed || d_pressed);
     }
 
-    public Point get_wasd_end() {
-        if (w_pressed && !s_pressed && a_pressed == d_pressed)
-            return point_w;
-        else if (a_pressed && !d_pressed && w_pressed == s_pressed)
-            return point_a;
-        else if (s_pressed && !w_pressed && a_pressed == d_pressed)
-            return point_s;
-        else if (d_pressed && a_pressed && w_pressed == s_pressed)
-            return point_d;
-        else if (a_pressed && w_pressed && !s_pressed && !d_pressed)
-            return point_aw;
-        else if (d_pressed && w_pressed && !a_pressed && !s_pressed)
-            return point_dw;
-        else if (a_pressed && s_pressed && !w_pressed && !d_pressed)
-            return point_as;
-        else if (d_pressed && s_pressed && !w_pressed && !a_pressed)
-            return point_ds;
-        else
-            return point_wasd_start;
+    public void get_wasd_end() {
+        if (w_pressed && !s_pressed && a_pressed == d_pressed) {
+            point_wasd_end.x = point_w.x;
+            point_wasd_end.y = point_w.y;
+        } else if (a_pressed && !d_pressed && w_pressed == s_pressed) {
+            point_wasd_end.x = point_a.x;
+            point_wasd_end.y = point_a.y;
+        } else if (s_pressed && !w_pressed && a_pressed == d_pressed) {
+            point_wasd_end.x = point_s.x;
+            point_wasd_end.y = point_s.y;
+        } else if (d_pressed && !a_pressed && w_pressed == s_pressed) {
+            point_wasd_end.x = point_d.x;
+            point_wasd_end.y = point_d.y;
+        } else if (a_pressed && w_pressed && !s_pressed && !d_pressed) {
+            point_wasd_end.x = point_aw.x;
+            point_wasd_end.y = point_aw.y;
+        } else if (d_pressed && w_pressed && !a_pressed && !s_pressed) {
+            point_wasd_end.x = point_dw.x;
+            point_wasd_end.y = point_dw.y;
+        } else if (a_pressed && s_pressed && !w_pressed && !d_pressed) {
+            point_wasd_end.x = point_as.x;
+            point_wasd_end.y = point_as.y;
+        } else if (d_pressed && s_pressed && !w_pressed && !a_pressed) {
+            point_wasd_end.x = point_ds.x;
+            point_wasd_end.y = point_ds.y;
+        } else {
+            point_wasd_end.x = point_wasd_start.x;
+            point_wasd_end.y = point_wasd_start.y;
+        }
+
     }
 
     public int get_slot() {
         int i = 0;
-        while (slots[i++]) ;
+        while (slots[i++]);
         slots[--i] = true;
         return i;
     }
@@ -225,6 +245,7 @@ public class TouchService extends Service {
         MotionEvent event = MotionEvent.obtain(startTime, startTime, a,1, pp, pc,
                 0, 0, 1, 1, 0, 0, 0, 0);
 
+
         if (mInst == null) {
             mInst = new Instrumentation();
         }
@@ -248,12 +269,10 @@ public class TouchService extends Service {
         action(p, slot, MotionEvent.ACTION_MOVE, false);
     }
 
-    public Step get_step(Point start, Point end, int steps) {
-        Step step = new Step();
-        step.steps = steps;
-        step.x = (end.x - start.x) / steps;
-        step.y = (end.y - start.y) / steps;
-        return step;
+    public void get_wasd_step(Point start, Point end, int steps) {
+        wasd_step.steps = steps;
+        wasd_step.x = (end.x - start.x) / steps;
+        wasd_step.y = (end.y - start.y) / steps;
     }
 
     public void test_multi_touch() {
