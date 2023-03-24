@@ -77,7 +77,7 @@ public class TcpClient {
                 output_stream.write(buf, 0, len);
                 output_stream.flush();
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                Log.e(TAG, "send exception");
             }
         }
     }

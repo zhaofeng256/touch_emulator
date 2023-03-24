@@ -1,6 +1,15 @@
 package com.zf.coyote;
 
-import static com.zf.coyote.definition.*;
+import static com.zf.coyote.definition.EventType;
+import static com.zf.coyote.definition.KeyEvent;
+import static com.zf.coyote.definition.VK_A;
+import static com.zf.coyote.definition.VK_D;
+import static com.zf.coyote.definition.VK_S;
+import static com.zf.coyote.definition.VK_W;
+import static com.zf.coyote.definition.V_ID;
+import static com.zf.coyote.definition.V_PARAM1;
+import static com.zf.coyote.definition.V_PARAM2;
+import static com.zf.coyote.definition.V_TYPE;
 
 import android.app.Instrumentation;
 import android.app.Service;
@@ -12,6 +21,20 @@ import android.view.InputDevice;
 import android.view.MotionEvent;
 
 public class TouchService extends Service {
+    public static class Point {
+        public float x;
+        public float y;
+        public Point(float x, float y) {
+            this.x = x;
+            this.y = y;
+        }
+        public Point() {
+        }
+    }
+
+    static class Step extends Point {
+        public int steps;
+    }
 
     public static final String TAG = TouchService.class.getSimpleName();
     static Instrumentation mInst = new Instrumentation();
@@ -19,21 +42,17 @@ public class TouchService extends Service {
     Point point_a = new Point(200, 800);
     Point point_s = new Point(500, 1100);
     Point point_d = new Point(800, 800);
-    Point point_aw = new Point(500-212, 800-212);
-    Point point_dw = new Point(500+212, 800-212);
-    Point point_as = new Point(500-212, 800+212);
-    Point point_ds = new Point(500+212, 800+212);
+    Point point_aw = new Point(500 - 212, 800 - 212);
+    Point point_dw = new Point(500 + 212, 800 - 212);
+    Point point_as = new Point(500 - 212, 800 + 212);
+    Point point_ds = new Point(500 + 212, 800 + 212);
     Point point_wasd_start = new Point(500, 800);
     Point point_wasd_end = new Point(500, 800);
     Point point_wasd_end_old = new Point(500, 800);
     Point point_wasd_now = new Point(500, 800);
-    Point point_mouse_start = new Point(743, 409);
+    Point point_mouse_start = new Point(1200, 540);  //1080x2400
     Point point_mouse_end = new Point();
-
-    static class Step extends Point {
-        public int steps;
-    }
-
+    Point point_mouse_old = new Point();
     Step wasd_step = new Step();
     long mouse_timeout;
     boolean mouse_pressed = false;
@@ -42,9 +61,11 @@ public class TouchService extends Service {
     boolean s_pressed = false;
     boolean d_pressed = false;
     boolean last_wasd_pressed = false;
-
-    boolean[] slots = new boolean[10];
-
+    int MAX_SLOT = 10;
+    boolean[] slots = new boolean[MAX_SLOT];
+    Point[] point_slots = new Point[MAX_SLOT];
+    MotionEvent.PointerProperties[] pointerProperties = new MotionEvent.PointerProperties[MAX_SLOT];
+    MotionEvent.PointerCoords[] pointerCoordinates = new MotionEvent.PointerCoords[MAX_SLOT];
     int wasd_slot;
     int mouse_slot;
 
@@ -53,34 +74,17 @@ public class TouchService extends Service {
         // TODO: Return the communication channel to the service.
         throw new UnsupportedOperationException("Not yet implemented");
     }
-    void test() {
 
-        Point p = new Point(500, 500);
-        int slot = action_down(p);
-        for (int i = 0; i < 10; i++) {
-            p.x +=  20 * i;
-            p.y +=  20 * i;
-            action_move(p, slot);
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        action_up(p, slot);
-
-        try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+    public TouchService() {
+        init_pointers();
     }
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
 
 
-
         new Thread(() -> {
+
             while (true) {
                 synchronized (TcpService.sync_key) {
                     try {
@@ -97,9 +101,15 @@ public class TouchService extends Service {
 //                        2.如鼠标已按下 && 超时未动 发送抬起 设置抬起
 //                        3.如wasd未全部抬起 && 未到达终点 向终点移动一格
 
-                        while (TcpService.data_list.isEmpty())
+                        while (TcpService.data_list.isEmpty()) {
                             TcpService.sync_key.wait(100);
 
+                            long now = SystemClock.uptimeMillis();
+                            if (mouse_pressed && now > mouse_timeout) {
+                                mouse_pressed = false;
+                                action_up(point_mouse_end, mouse_slot);
+                            }
+                        }
                         if (!TcpService.data_list.isEmpty()) {
                             TcpService.TcpData data = TcpService.data_list.remove(0);
 
@@ -112,20 +122,26 @@ public class TouchService extends Service {
 //                                    " param1=" + param1 + " param2=" + param2);
 
                             if (EventType.TYPE_MOUSE == type) {
-                                point_mouse_end.x = param1;
-                                point_mouse_end.y = param2;
+
                                 if (!mouse_pressed) {
                                     mouse_pressed = true;
-                                    mouse_slot = action_down(new Point(param1, param2));
+                                    mouse_slot = action_down(point_mouse_start);
+                                    point_mouse_old.x = param1;
+                                    point_mouse_old.y = param2;
+                                } else {
+                                    point_mouse_end.x = point_mouse_start.x + (param1 - point_mouse_old.x) * 1366 / 2400;
+                                    point_mouse_end.y = point_mouse_start.y + (param2 - point_mouse_old.y) * 768 / 1080;
+                                    action_move(point_mouse_end, mouse_slot);
                                 }
-                                action_move(point_mouse_end, mouse_slot);
+
                                 mouse_timeout = SystemClock.uptimeMillis() + 100;
+
                             } else if (EventType.TYPE_KEYBOARD == type) {
                                 if (is_wasd(param1)) {
                                     set_wasd_status(param1, param2);
                                     get_wasd_end();
                                     if (wasd_end_changed())
-                                        get_wasd_step(point_wasd_now, point_wasd_end, 5);
+                                        get_wasd_step(point_wasd_now, point_wasd_end, 1);
                                     back_wasd_end();
 
                                     if (KeyEvent.KEY_DOWN == param2) {
@@ -151,12 +167,6 @@ public class TouchService extends Service {
                             }
                         }
 
-                        long now = SystemClock.uptimeMillis();
-                        if (mouse_pressed && now > mouse_timeout) {
-                            mouse_pressed = false;
-                            action_up(point_mouse_end, mouse_slot);
-                        }
-
 //                        if (!is_wasd_all_release() && wasd_step.steps-- > 0) {
 //                            point_wasd_now.x += wasd_step.x;
 //                            point_wasd_now.y += wasd_step.y;
@@ -169,7 +179,6 @@ public class TouchService extends Service {
                     }
 
                 }
-
             }
 
         }).start();
@@ -237,15 +246,17 @@ public class TouchService extends Service {
         point_wasd_end_old.x = point_wasd_end.x;
         point_wasd_end_old.y = point_wasd_end.y;
     }
-    public boolean isZero(double value, double threshold){
+
+    public boolean isZero(double value, double threshold) {
         return value >= -threshold && value <= threshold;
     }
+
     void wasd_one_step() {
         float x = point_wasd_end.x - point_wasd_now.x;
         float y = point_wasd_end.y - point_wasd_now.y;
-        if(Math.abs(wasd_step.x) > Math.abs(x))
+        if (Math.abs(wasd_step.x) > Math.abs(x))
             wasd_step.x = x;
-        if(Math.abs(wasd_step.y) > Math.abs(y))
+        if (Math.abs(wasd_step.y) > Math.abs(y))
             wasd_step.y = y;
 
         if (!(isZero(wasd_step.x, 0.1) && isZero(wasd_step.y, 0.1))) {
@@ -254,49 +265,67 @@ public class TouchService extends Service {
             action_move(point_wasd_now, wasd_slot);
         }
     }
-    public int get_slot() {
+
+    int get_slot() {
         int i = 0;
-        while (slots[i++]);
+        while (slots[i++]) ;
         slots[--i] = true;
         return i;
     }
 
-    public void release_slot(int slot) {
+    void release_slot(int slot) {
         slots[slot] = false;
     }
 
-    public boolean is_slot_empty() {
+    boolean is_slot_empty() {
         for (boolean b : slots)
             if (b) return false;
         return true;
     }
 
-    public void action(Point p, int slot, int action, boolean empty) {
+    int slot_count() {
+        int i = 0;
+        for (boolean b : slots)
+            if (b) i++;
+        return i;
+    }
 
-        MotionEvent.PointerProperties[] pp = new MotionEvent.PointerProperties[1];
-        pp[0] = new MotionEvent.PointerProperties();
-        pp[0].id = slot;
-        pp[0].toolType = MotionEvent.TOOL_TYPE_FINGER;
+    void init_pointers() {
+        Log.d(TAG, "init pointers");
+        for (int i = 0; i < MAX_SLOT; i++) {
+            point_slots[i] = new Point();
 
-        MotionEvent.PointerCoords[] pc = new MotionEvent.PointerCoords[1];
-        pc[0] = new MotionEvent.PointerCoords();
-        pc[0].x = p.x;
-        pc[0].y = p.y;
-        pc[0].pressure = 1;
-        pc[0].size = 1;
+            pointerProperties[i] = new MotionEvent.PointerProperties();
+            pointerProperties[i].toolType = MotionEvent.TOOL_TYPE_FINGER;
 
-        final long startTime = SystemClock.uptimeMillis();
-        int a = action;
-        if (!empty) {
-            if (action == MotionEvent.ACTION_DOWN)
-                a = MotionEvent.ACTION_POINTER_DOWN + (pp[0].id << MotionEvent.ACTION_POINTER_INDEX_SHIFT);
-            else if (action == MotionEvent.ACTION_UP)
-                a = MotionEvent.ACTION_POINTER_UP + (pp[0].id << MotionEvent.ACTION_POINTER_INDEX_SHIFT);
+            pointerCoordinates[i] = new MotionEvent.PointerCoords();
+            pointerCoordinates[i].pressure = 1;
+            pointerCoordinates[i].size = 1;
+
+        }
+    }
+
+    public void action(Point p, int slot, int action) {
+
+        point_slots[slot].x = p.x;
+        point_slots[slot].y = p.y;
+
+        int j = 0;
+        for (int i = 0; i < MAX_SLOT; i++) {
+            if (slots[i]) {
+                pointerProperties[j].id = i;
+                pointerCoordinates[j].x = point_slots[i].x;
+                pointerCoordinates[j].y = point_slots[i].y;
+                j++;
+            }
         }
 
-        MotionEvent event = MotionEvent.obtain(startTime, startTime, a,1, pp, pc,
-                0, 0, 1, 1, 0, 0, 0, 0);
+        final long startTime = SystemClock.uptimeMillis();
+        slot_count();
 
+        MotionEvent event = MotionEvent.obtain(startTime, startTime, action, j,
+                pointerProperties, pointerCoordinates,
+                0, 0, 1, 1, 0, 0, 0, 0);
 
         if (mInst == null) {
             mInst = new Instrumentation();
@@ -305,26 +334,80 @@ public class TouchService extends Service {
     }
 
     public int action_down(Point p) {
-        boolean empty = is_slot_empty();
         int slot = get_slot();
-        action(p, slot, MotionEvent.ACTION_DOWN, empty);
+        int a;
+        if (1 == slot_count())
+            a = MotionEvent.ACTION_DOWN;
+        else
+            a = MotionEvent.ACTION_POINTER_DOWN + (slot << MotionEvent.ACTION_POINTER_INDEX_SHIFT);
+        action(p, slot, a);
         return slot;
     }
 
     public void action_up(Point p, int slot) {
+        int a;
+        if (1 == slot_count())
+            a = MotionEvent.ACTION_UP;
+        else
+            a = MotionEvent.ACTION_POINTER_UP + (slot << MotionEvent.ACTION_POINTER_INDEX_SHIFT);
+        action(p, slot, a);
         release_slot(slot);
-        boolean empty = is_slot_empty();
-        action(p, slot, MotionEvent.ACTION_UP, empty);
     }
 
     public void action_move(Point p, int slot) {
-        action(p, slot, MotionEvent.ACTION_MOVE, false);
+        action(p, slot, MotionEvent.ACTION_MOVE);
     }
 
     public void get_wasd_step(Point start, Point end, int steps) {
         wasd_step.steps = steps;
         wasd_step.x = (end.x - start.x) / steps;
         wasd_step.y = (end.y - start.y) / steps;
+    }
+
+    void test() {
+
+        Point p = new Point(400, 400);
+        Point p1 = new Point(500, 400);
+        action_down(p);
+
+        for (int i = 0; i < 10; i++) {
+            p.x += 20;
+            p.y += 20;
+            action_move(p, 0);
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        action_down(p1);
+
+        for (int i = 0; i < 10; i++) {
+            p1.x += 10;
+            p1.y += 10;
+            action_move(p1, 1);
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        action_up(p, 0);
+
+        for (int i = 0; i < 10; i++) {
+            p1.x += 10;
+            p1.y -= 10;
+            action_move(p1, 1);
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        action_up(p1, 1);
     }
 
     public void test_multi_touch() {
@@ -399,19 +482,6 @@ public class TouchService extends Service {
         event.recycle();
     }
 
-    public static class Point {
-        public float x;
-        public float y;
-
-        public Point(float x, float y) {
-            this.x = x;
-            this.y = y;
-        }
-
-        public Point() {
-
-        }
-    }
 
     private static void performPinch(Point startPoint1, Point startPoint2, Point endPoint1, Point endPoint2) {
         final int duration = 500;
