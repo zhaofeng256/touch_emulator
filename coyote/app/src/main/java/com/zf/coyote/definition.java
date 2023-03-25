@@ -96,6 +96,9 @@ public class definition {
     public static int WL_BACK = WHEEL_CODE + WheelEvent.ROLL_BACK;
     public static int WL_FORWARD = WHEEL_CODE + WheelEvent.ROLL_FORWARD;
 
+    public static int MV_CENTER = 290;
+    public static int VIEW_START = 300;
+
     public static int[][] position = new int[][]{
             {VK_ALT,    1090, 660},
             {VK_SPACE,  1227, 510},
@@ -124,8 +127,15 @@ public class definition {
             {BT_RIGHT,  1118, 389},
             {BT_BACK,   1003, 457},
             {WL_BACK,   631, 630},
-            {WL_FORWARD,791, 634}
+            {WL_FORWARD,791, 634},
+            {MV_CENTER, 243, 513},
+            {VIEW_START,846, 264}
 
     };
-
+    public static int MV_RADIUS = 89;
+    public static int MV_UP = VK_W;
+    public static int MV_LEFT = VK_A;
+    public static int MV_DOWN = VK_S;
+    public static int MV_RIGHT = VK_D;
+    public static int MV_SPRINT = VK_SHIFT;
 }
