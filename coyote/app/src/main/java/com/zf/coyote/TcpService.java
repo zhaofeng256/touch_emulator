@@ -1,6 +1,10 @@
 package com.zf.coyote;
 
-import static com.zf.coyote.definition.*;
+import static com.zf.coyote.definition.V_CHECKSUM;
+import static com.zf.coyote.definition.V_ID;
+import static com.zf.coyote.definition.V_PARAM1;
+import static com.zf.coyote.definition.V_PARAM2;
+import static com.zf.coyote.definition.V_TYPE;
 
 import android.app.Service;
 import android.content.Intent;
@@ -13,7 +17,7 @@ import java.util.Arrays;
 public class TcpService extends Service {
 
     public static final String TAG = TcpClient.class.getSimpleName();
-    public static ArrayList<TcpData> data_list_tcp = new ArrayList<>();
+    public static ArrayList<byte[]> data_list_tcp = new ArrayList<>();
 
     public static final Object sync_key_tcp = new Object();
 
@@ -56,17 +60,19 @@ public class TcpService extends Service {
 
         TcpData data = new TcpData();
         for (int i = 0; i < len / data.size; i++) {
-            for (String name : data.names.keySet()) {
+
+/*            for (String name : data.names.keySet()) {
                 byte[] tmp = Arrays.copyOfRange(buf, i * data.size + data.offset(name),
                         i * data.size + data.offset(name) + data.size(name));
                 data.set(name, tmp);
             }
-/*
+
             Log.d(TAG, "id=" + data.get(V_ID) + " type=" + data.get(V_TYPE) +
                     " param1=" + data.get(V_PARAM1) + " param2=" + data.get(V_PARAM2));*/
 
             synchronized (sync_key_tcp) {
-                TcpService.data_list_tcp.add(data);
+                byte[] m = Arrays.copyOfRange(buf, i * data.size, (i + 1) * data.size);
+                TcpService.data_list_tcp.add(m);
                 TcpService.sync_key_tcp.notify();
             }
 
@@ -95,17 +101,17 @@ public class TcpService extends Service {
         int i = 0;
 
         while (i + 1 < len) {
-            s += (int)data[i]& 0xff;
-            s += ((int)data[i+1]& 0xff) << 8;
+            s += (int) data[i] & 0xff;
+            s += ((int) data[i + 1] & 0xff) << 8;
             i += 2;
         }
 
         if (i + 1 == len) {
-            s += (int)data[i]& 0xff;
+            s += (int) data[i] & 0xff;
         }
 
-        s = s & 0xffff + (s >> 16) ;
-        s = (~s)  & 0xffff;
+        s = s & 0xffff + (s >> 16);
+        s = (~s) & 0xffff;
 
 //        byte [] sum = new byte[2];
 //        sum[0] = (byte)(s & 0xff);

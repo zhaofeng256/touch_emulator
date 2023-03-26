@@ -28,6 +28,7 @@ import android.view.InputDevice;
 import android.view.MotionEvent;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 public class TouchService extends Service {
@@ -52,7 +53,6 @@ public class TouchService extends Service {
     Point point_touch_start, point_touch_end, point_mouse_start, point_mouse_old;
 
     long mouse_timeout;
-    long keyboard_timeout;
     boolean mouse_pressed = false;
     byte moveKeyStatus;
     int MAX_SLOT = 10;
@@ -68,6 +68,7 @@ public class TouchService extends Service {
     HashMap<Integer, int[]> key_map = new HashMap<>();
     public static final Object sync_key_touch = new Object();
     public static final Object sync_key_move = new Object();
+    public static final Object sync_key_release = new Object();
     boolean start_move;
 
     static class TouchData {
@@ -152,39 +153,49 @@ public class TouchService extends Service {
         initPointers();
     }
 
+    public int data_id;
+
     void dataHandle(TcpService.TcpData data) {
-        if (data == null)
+        if (data == null) {
+            Log.e(TAG, "get null tcp data");
             return;
+        }
 
         int id = data.get(V_ID);
+        if (id != data_id + 1) {
+            Log.e(TAG, "data id " + id + " != " + data_id);
+        }
+        data_id = id;
+
         int type = data.get(V_TYPE);
         int param1 = data.get(V_PARAM1);
         int param2 = data.get(V_PARAM2);
 
-        Log.d(TAG, " id=" + id + " type=" + type +
-                " param1=" + param1 + " param2=" + param2);
 
         if (EventType.TYPE_MOUSE == type) {
+            synchronized (sync_key_release) {
+                if (!mouse_pressed) {
+                    mouse_pressed = true;
+                    mouse_slot = actionDownAsync(point_touch_start);
+                    point_mouse_start.x = param1;
+                    point_mouse_start.y = param2;
+                } else {
 
-            if (!mouse_pressed) {
-                mouse_pressed = true;
-                mouse_slot = actionDownAsync(point_touch_start);
-                point_mouse_start.x = param1;
-                point_mouse_start.y = param2;
-            } else {
-
-                if (param1 != point_mouse_old.x || param2 != point_mouse_old.y) {
-                    point_touch_end.x = point_touch_start.x + (param1 - point_mouse_start.x) * 1280 / 1366;
-                    point_touch_end.y = point_touch_start.y + (param2 - point_mouse_start.y) * 720 / 768;
-                    actionMoveAsync(point_touch_end, mouse_slot);
-                    point_mouse_old.x = param1;
-                    point_mouse_old.y = param2;
+                    if (param1 != point_mouse_old.x || param2 != point_mouse_old.y) {
+                        point_touch_end.x = point_touch_start.x + (param1 - point_mouse_start.x) * 1280 / 1366;
+                        point_touch_end.y = point_touch_start.y + (param2 - point_mouse_start.y) * 720 / 768;
+                        actionMoveAsync(point_touch_end, mouse_slot);
+                        point_mouse_old.x = param1;
+                        point_mouse_old.y = param2;
+                    }
                 }
+
+                mouse_timeout = SystemClock.uptimeMillis() + 100;
             }
-
-            mouse_timeout = SystemClock.uptimeMillis() + 100;
-
         } else if (EventType.TYPE_KEYBOARD == type) {
+
+            Log.d(TAG, " id=" + id + " type=" + type +
+                    " param1=" + param1 + " param2=" + param2);
             if (isMoveKey(param1)) {
                 synchronized (sync_key_move) {
                     byte b = presetMoveKeyStatus(moveKeyStatus, param1, param2);
@@ -195,17 +206,16 @@ public class TouchService extends Service {
                             sync_key_move.notify();
                         }
                     } else if (KeyEvent.KEY_UP == param2 && moveKeyStatus ==
-                            (int)(1 << offsetMoveKey(param1) & 0xf) ){
-                            if (start_move) {
-                                start_move = false;
-                                sync_key_move.notify();
-                            }
+                            (int) (1 << offsetMoveKey(param1) & 0xf)) {
+                        if (start_move) {
+                            start_move = false;
+                            sync_key_move.notify();
+                        }
                     } else if (start_move) {
                         sync_key_move.notify();
                     }
 
                     moveKeyStatus = b;
-                    keyboard_timeout = SystemClock.uptimeMillis() + 700;
 /*                if (KeyEvent.KEY_DOWN == param2 && moveKeyStatus == 0) {
                     slotStep = actionDownAsync(pointMoveNow);
                     pointMoveNow.x = pointMoveStart.x;
@@ -224,13 +234,15 @@ public class TouchService extends Service {
                 }
             } else if (MV_SPRINT == param1) {
                 if (param2 != sprint_status) {
-                    sprint_status = param2;
+
                     synchronized (sync_key_move) {
+                        sprint_status = param2;
                         pointMoveEnd = getMoveEndPoint(moveKeyStatus, sprint_status);
                         if (start_move)
                             sync_key_move.notify();
                     }
                 }
+
             } else {
                 int[] pos = key_map.get(param1);
                 if (pos != null) {
@@ -299,9 +311,8 @@ public class TouchService extends Service {
     Thread threadMove = new Thread(new Runnable() {
         @Override
         public void run() {
-            while (true) {
-                synchronized (sync_key_move) {
-
+            synchronized (sync_key_move) {
+                while (true) {
                     while (!start_move) {
                         try {
                             sync_key_move.wait();
@@ -315,7 +326,7 @@ public class TouchService extends Service {
                     slotStep = actionDownAsync(pointMoveNow);
 
                     while (start_move) {
-                        if(!pointSame(pointMoveNow, pointMoveEnd)) {
+                        if (!pointSame(pointMoveNow, pointMoveEnd)) {
                             moveFromTo(pointMoveNow, pointMoveEnd, slotStep);
                             pointMoveNow.x = pointMoveEnd.x;
                             pointMoveNow.y = pointMoveEnd.y;
@@ -336,9 +347,10 @@ public class TouchService extends Service {
     });
 
     Thread threadSendPoint = new Thread(() -> {
-        TouchData data;
-        while (true) {
-            synchronized (sync_key_touch) {
+        synchronized (sync_key_touch) {
+            TouchData data;
+            while (true) {
+
                 if (data_list_touch.isEmpty()) {
                     try {
                         sync_key_touch.wait();
@@ -370,31 +382,38 @@ public class TouchService extends Service {
         }
     });
 
-    Thread threadGetData = new Thread(() -> {
-
-        TcpService.TcpData data;
+    Thread threadReleaseTouch = new Thread(() -> {
         while (true) {
+            synchronized (sync_key_release) {
+                if (mouse_pressed && SystemClock.uptimeMillis() > mouse_timeout) {
+                    mouse_pressed = false;
+                    actionUpAsync(point_touch_end, mouse_slot);
+                }
+            }
+            SystemClock.sleep(100);
+        }
+    });
 
-            synchronized (TcpService.sync_key_tcp) {
+    Thread threadGetData = new Thread(() -> {
+        synchronized (TcpService.sync_key_tcp) {
+            TcpService.TcpData data = new TcpService.TcpData();
+            while (true) {
                 try {
-                    if (TcpService.data_list_tcp.isEmpty()) {
-                        TcpService.sync_key_tcp.wait(100);
-                        long now = SystemClock.uptimeMillis();
-                        if (mouse_pressed && now > mouse_timeout) {
-                            mouse_pressed = false;
-                            actionUpAsync(point_touch_end, mouse_slot);
+                    while (TcpService.data_list_tcp.isEmpty())
+                        TcpService.sync_key_tcp.wait();
+
+                    byte[] buf = TcpService.data_list_tcp.remove(0);
+
+                    if (buf != null) {
+                        for (String name : data.names.keySet()) {
+                            byte[] tmp = Arrays.copyOfRange(buf, data.offset(name),
+                                    data.offset(name) + data.size(name));
+                            data.set(name, tmp);
                         }
 
-                        if (start_move && now > keyboard_timeout) {
-                            synchronized (sync_key_touch) {
-                                start_move = false;
-                                sync_key_move.notify();
-                            }
-                        }
-                    } else {
-                        data = TcpService.data_list_tcp.remove(0);
                         dataHandle(data);
                     }
+
                 } catch (InterruptedException e) {
                     // Happens if someone interrupts your thread.
                     Log.e(TAG, "wait tcp data interrupt exception" + e);
@@ -407,6 +426,7 @@ public class TouchService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         threadMove.start();
         threadSendPoint.start();
+        threadReleaseTouch.start();
         threadGetData.start();
         return START_STICKY;
     }
@@ -501,7 +521,7 @@ public class TouchService extends Service {
         return value >= -threshold && value <= threshold;
     }
 
-    public boolean pointSame(Point a, Point b){
+    public boolean pointSame(Point a, Point b) {
         return a.x - b.x >= -0.1 && a.x - b.x <= 0.1 && a.y - b.y >= -0.1 && a.y - b.y <= 0.1;
     }
 
