@@ -52,6 +52,7 @@ public class TouchService extends Service {
     Point point_touch_start, point_touch_end, point_mouse_start, point_mouse_old;
 
     long mouse_timeout;
+    long keyboard_timeout;
     boolean mouse_pressed = false;
     byte moveKeyStatus;
     int MAX_SLOT = 10;
@@ -187,25 +188,24 @@ public class TouchService extends Service {
             if (isMoveKey(param1)) {
                 synchronized (sync_key_move) {
                     byte b = presetMoveKeyStatus(moveKeyStatus, param1, param2);
-                    setMoveEndPoint(b, sprint_status);
+                    pointMoveEnd = getMoveEndPoint(b, sprint_status);
                     if (KeyEvent.KEY_DOWN == param2 && moveKeyStatus == 0) {
                         if (!start_move) {
                             start_move = true;
                             sync_key_move.notify();
                         }
-                    } else if (KeyEvent.KEY_UP == param2) {
-                        int a = (1 << offsetMoveKey(param1)) & 0xf;
-                        if (moveKeyStatus == a) {
+                    } else if (KeyEvent.KEY_UP == param2 && moveKeyStatus ==
+                            (int)(1 << offsetMoveKey(param1) & 0xf) ){
                             if (start_move) {
                                 start_move = false;
                                 sync_key_move.notify();
                             }
-                        }
                     } else if (start_move) {
                         sync_key_move.notify();
                     }
 
                     moveKeyStatus = b;
+                    keyboard_timeout = SystemClock.uptimeMillis() + 700;
 /*                if (KeyEvent.KEY_DOWN == param2 && moveKeyStatus == 0) {
                     slotStep = actionDownAsync(pointMoveNow);
                     pointMoveNow.x = pointMoveStart.x;
@@ -225,8 +225,11 @@ public class TouchService extends Service {
             } else if (MV_SPRINT == param1) {
                 if (param2 != sprint_status) {
                     sprint_status = param2;
-                    setMoveEndPoint(moveKeyStatus, sprint_status);
-                    moveOneStep(pointMoveNow, pointMoveEnd);
+                    synchronized (sync_key_move) {
+                        pointMoveEnd = getMoveEndPoint(moveKeyStatus, sprint_status);
+                        if (start_move)
+                            sync_key_move.notify();
+                    }
                 }
             } else {
                 int[] pos = key_map.get(param1);
@@ -270,25 +273,25 @@ public class TouchService extends Service {
 
         Point p = new Point(start.x, start.y);
 
-        for (int i = 0; i < 10; i++) {
-            p = step(2, p, start, end, req_id);
-            SystemClock.sleep(10);
+        for (int i = 0; i < 5; i++) {
+            p = step(4, p, start, end, req_id);
+            SystemClock.sleep(5);
         }
 
-        int n = (int) (distance - 2 * 20) / 20;
+        int n = (int) (distance - 4 * 10) / 20;
 
         for (int i = 0; i < n; i++) {
             p = step(20, p, start, end, req_id);
-            SystemClock.sleep(10);
+            SystemClock.sleep(5);
         }
 
         float len = distance - (2 + n) * 20;
         if (len > 0)
             step(len, p, start, end, req_id);
 
-        for (int i = 0; i < 10; i++) {
-            p = step(2, p, start, end, req_id);
-            SystemClock.sleep(10);
+        for (int i = 0; i < 5; i++) {
+            p = step(4, p, start, end, req_id);
+            SystemClock.sleep(5);
         }
         actionMoveAsync(pointMoveEnd, slotStep);
     }
@@ -312,20 +315,16 @@ public class TouchService extends Service {
                     slotStep = actionDownAsync(pointMoveNow);
 
                     while (start_move) {
+                        if(!pointSame(pointMoveNow, pointMoveEnd)) {
+                            moveFromTo(pointMoveNow, pointMoveEnd, slotStep);
+                            pointMoveNow.x = pointMoveEnd.x;
+                            pointMoveNow.y = pointMoveEnd.y;
+                        }
 
-                        moveFromTo(pointMoveNow, pointMoveEnd, slotStep);
-                        while (true) {
-                            float x = pointMoveEnd.x - pointMoveNow.x;
-                            float y = pointMoveEnd.y - pointMoveNow.y;
-
-                            if (isZero(x, 0.1) && isZero(y, 0.1))
-                                break;
-
-                            try {
-                                sync_key_move.wait();
-                            } catch (InterruptedException e) {
-                                Log.e(TAG, "wait start move interrupt exception" + e);
-                            }
+                        try {
+                            sync_key_move.wait();
+                        } catch (InterruptedException e) {
+                            Log.e(TAG, "wait start move interrupt exception" + e);
                         }
                     }
 
@@ -385,7 +384,13 @@ public class TouchService extends Service {
                             mouse_pressed = false;
                             actionUpAsync(point_touch_end, mouse_slot);
                         }
-                        //moveOneStep(pointMoveNow, pointMoveEnd);
+
+                        if (start_move && now > keyboard_timeout) {
+                            synchronized (sync_key_touch) {
+                                start_move = false;
+                                sync_key_move.notify();
+                            }
+                        }
                     } else {
                         data = TcpService.data_list_tcp.remove(0);
                         dataHandle(data);
@@ -440,59 +445,64 @@ public class TouchService extends Service {
         return ret;
     }
 
-    public void setMoveEndPoint(byte b, int sprint_status) {
+    public Point getMoveEndPoint(byte b, int sprint_status) {
         boolean w = (b & 0x1) > 0;
         boolean a = (b & 0x2) > 0;
         boolean s = (b & 0x4) > 0;
         boolean d = (b & 0x8) > 0;
+        Point end = new Point();
         if (w && !s && a == d) {
             if (sprint_status == 0) {
-                pointMoveEnd.x = point_sprint_w.x;
-                pointMoveEnd.y = point_sprint_w.y;
+                end.x = point_sprint_w.x;
+                end.y = point_sprint_w.y;
             } else {
-                pointMoveEnd.x = point_w.x;
-                pointMoveEnd.y = point_w.y;
+                end.x = point_w.x;
+                end.y = point_w.y;
             }
         } else if (a && !d && w == s) {
-            pointMoveEnd.x = point_a.x;
-            pointMoveEnd.y = point_a.y;
+            end.x = point_a.x;
+            end.y = point_a.y;
         } else if (s && !w && a == d) {
-            pointMoveEnd.x = point_s.x;
-            pointMoveEnd.y = point_s.y;
+            end.x = point_s.x;
+            end.y = point_s.y;
         } else if (d && !a && w == s) {
-            pointMoveEnd.x = point_d.x;
-            pointMoveEnd.y = point_d.y;
+            end.x = point_d.x;
+            end.y = point_d.y;
         } else if (a && w && !s) {
             if (sprint_status == 0) {
-                pointMoveEnd.x = point_sprint_aw.x;
-                pointMoveEnd.y = point_sprint_aw.y;
+                end.x = point_sprint_aw.x;
+                end.y = point_sprint_aw.y;
             } else {
-                pointMoveEnd.x = point_aw.x;
-                pointMoveEnd.y = point_aw.y;
+                end.x = point_aw.x;
+                end.y = point_aw.y;
             }
         } else if (d && w && !a) {
             if (sprint_status == 0) {
-                pointMoveEnd.x = point_sprint_dw.x;
-                pointMoveEnd.y = point_sprint_dw.y;
+                end.x = point_sprint_dw.x;
+                end.y = point_sprint_dw.y;
             } else {
-                pointMoveEnd.x = point_dw.x;
-                pointMoveEnd.y = point_dw.y;
+                end.x = point_dw.x;
+                end.y = point_dw.y;
             }
         } else if (a && s && !w) {
-            pointMoveEnd.x = point_as.x;
-            pointMoveEnd.y = point_as.y;
+            end.x = point_as.x;
+            end.y = point_as.y;
         } else if (d && s && !w) {
-            pointMoveEnd.x = point_ds.x;
-            pointMoveEnd.y = point_ds.y;
+            end.x = point_ds.x;
+            end.y = point_ds.y;
         } else {
-            pointMoveEnd.x = pointMoveStart.x;
-            pointMoveEnd.y = pointMoveStart.y;
+            end.x = pointMoveStart.x;
+            end.y = pointMoveStart.y;
         }
-
+        return end;
     }
 
     public boolean isZero(double value, double threshold) {
         return value >= -threshold && value <= threshold;
+    }
+
+    public boolean pointSame(Point a, Point b){
+        return a.x - b.x >= -0.1 && a.x - b.x <= 0.1 && a.y - b.y >= -0.1 && a.y - b.y <= 0.1;
     }
 
     void moveOneStep(Point start, Point end) {
@@ -608,8 +618,10 @@ public class TouchService extends Service {
         data.id = id;
         data.action = action;
         data.p = new Point(p.x, p.y);
-        data_list_touch.add(data);
-        sync_key_touch.notify();
+        synchronized (sync_key_touch) {
+            data_list_touch.add(data);
+            sync_key_touch.notify();
+        }
         return id;
     }
 
