@@ -27,6 +27,7 @@ import android.util.Log;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public class TouchService extends Service {
@@ -64,6 +65,24 @@ public class TouchService extends Service {
     int sprint_status;
     int step_len;
     HashMap<Integer, int[]> key_map = new HashMap<>();
+    public static final Object sync_key_touch = new Object();
+    public static final Object sync_key_move = new Object();
+    boolean start_move;
+
+    static class TouchData {
+        int id;
+        int action;
+        Point p;
+    }
+
+    int req_id;
+    int ACTION_DOWN = 0;
+    int ACTION_UP = 1;
+    int ACTION_MOVE = 2;
+
+    HashMap<Integer, Integer> map_id_slot = new HashMap<>();
+
+    public static ArrayList<TouchData> data_list_touch = new ArrayList<>();
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -148,7 +167,7 @@ public class TouchService extends Service {
 
             if (!mouse_pressed) {
                 mouse_pressed = true;
-                mouse_slot = actionDown(point_touch_start);
+                mouse_slot = actionDownAsync(point_touch_start);
                 point_mouse_start.x = param1;
                 point_mouse_start.y = param2;
             } else {
@@ -156,7 +175,7 @@ public class TouchService extends Service {
                 if (param1 != point_mouse_old.x || param2 != point_mouse_old.y) {
                     point_touch_end.x = point_touch_start.x + (param1 - point_mouse_start.x) * 1280 / 1366;
                     point_touch_end.y = point_touch_start.y + (param2 - point_mouse_start.y) * 720 / 768;
-                    actionMove(point_touch_end, mouse_slot);
+                    actionMoveAsync(point_touch_end, mouse_slot);
                     point_mouse_old.x = param1;
                     point_mouse_old.y = param2;
                 }
@@ -166,25 +185,43 @@ public class TouchService extends Service {
 
         } else if (EventType.TYPE_KEYBOARD == type) {
             if (isMoveKey(param1)) {
+                synchronized (sync_key_move) {
+                    byte b = presetMoveKeyStatus(moveKeyStatus, param1, param2);
+                    setMoveEndPoint(b, sprint_status);
+                    if (KeyEvent.KEY_DOWN == param2 && moveKeyStatus == 0) {
+                        if (!start_move) {
+                            start_move = true;
+                            sync_key_move.notify();
+                        }
+                    } else if (KeyEvent.KEY_UP == param2) {
+                        int a = (1 << offsetMoveKey(param1)) & 0xf;
+                        if (moveKeyStatus == a) {
+                            if (start_move) {
+                                start_move = false;
+                                sync_key_move.notify();
+                            }
+                        }
+                    } else if (start_move) {
+                        sync_key_move.notify();
+                    }
 
-                byte b = presetMoveKeyStatus(moveKeyStatus, param1, param2);
-                setMoveEndPoint(b, sprint_status);
-
-                if (KeyEvent.KEY_DOWN == param2 && moveKeyStatus == 0) {
-                    slotStep = actionDown(pointMoveNow);
+                    moveKeyStatus = b;
+/*                if (KeyEvent.KEY_DOWN == param2 && moveKeyStatus == 0) {
+                    slotStep = actionDownAsync(pointMoveNow);
                     pointMoveNow.x = pointMoveStart.x;
                     pointMoveNow.y = pointMoveStart.y;
                 } else if (KeyEvent.KEY_UP == param2) {
                     int a = (1 << offsetMoveKey(param1)) & 0xf;
                     if (moveKeyStatus == a) {
-                        actionUp(pointMoveNow, slotStep);
+                        actionUpAsync(pointMoveNow, slotStep);
                         pointMoveNow.x = pointMoveEnd.x;
                         pointMoveNow.y = pointMoveEnd.y;
                     }
                 }
 
                 moveOneStep(pointMoveNow, pointMoveEnd);
-                moveKeyStatus = b;
+                moveKeyStatus = b;*/
+                }
             } else if (MV_SPRINT == param1) {
                 if (param2 != sprint_status) {
                     sprint_status = param2;
@@ -204,10 +241,10 @@ public class TouchService extends Service {
             if (pos != null) {
                 Point p = new Point(pos[0], pos[1]);
                 if (param2 == KeyEvent.KEY_DOWN) {
-                    mouse_button_slot[param1] = actionDown(p);
+                    mouse_button_slot[param1] = actionDownAsync(p);
 
                 } else if (param2 == KeyEvent.KEY_UP) {
-                    actionUp(p, mouse_button_slot[param1]);
+                    actionUpAsync(p, mouse_button_slot[param1]);
                 }
             }
         } else if (EventType.TYPE_WHEEL == type) {
@@ -217,36 +254,155 @@ public class TouchService extends Service {
         }
     }
 
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
+    Point step(float n, Point p, Point start, Point end, int req_id) {
+        Point t = new Point();
+        float distance = (float) Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
 
-        new Thread(() -> {
-            //test();
-            TcpService.TcpData data;
+        t.x = p.x + n * (end.x - start.x) / distance;
+        t.y = p.y + n * (end.y - start.y) / distance;
+        actionMoveAsync(t, req_id);
+        return t;
+    }
+
+    void moveFromTo(Point start, Point end, int req_id) {
+
+        float distance = (float) Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+
+        Point p = new Point(start.x, start.y);
+
+        for (int i = 0; i < 10; i++) {
+            p = step(2, p, start, end, req_id);
+            SystemClock.sleep(10);
+        }
+
+        int n = (int) (distance - 2 * 20) / 20;
+
+        for (int i = 0; i < n; i++) {
+            p = step(20, p, start, end, req_id);
+            SystemClock.sleep(10);
+        }
+
+        float len = distance - (2 + n) * 20;
+        if (len > 0)
+            step(len, p, start, end, req_id);
+
+        for (int i = 0; i < 10; i++) {
+            p = step(2, p, start, end, req_id);
+            SystemClock.sleep(10);
+        }
+        actionMoveAsync(pointMoveEnd, slotStep);
+    }
+
+    Thread threadMove = new Thread(new Runnable() {
+        @Override
+        public void run() {
             while (true) {
+                synchronized (sync_key_move) {
 
-                synchronized (TcpService.sync_key) {
-                    try {
-                        if (TcpService.data_list.isEmpty()) {
-                            TcpService.sync_key.wait(100);
-                            long now = SystemClock.uptimeMillis();
-                            if (mouse_pressed && now > mouse_timeout) {
-                                mouse_pressed = false;
-                                actionUp(point_touch_end, mouse_slot);
-                            }
-                            //moveOneStep(pointMoveNow, pointMoveEnd);
-                        } else {
-                            data = TcpService.data_list.remove(0);
-                            dataHandle(data);
+                    while (!start_move) {
+                        try {
+                            sync_key_move.wait();
+                        } catch (InterruptedException e) {
+                            Log.e(TAG, "wait start move interrupt exception" + e);
                         }
+                    }
+
+                    pointMoveNow.x = pointMoveStart.x;
+                    pointMoveNow.y = pointMoveStart.y;
+                    slotStep = actionDownAsync(pointMoveNow);
+
+                    while (start_move) {
+
+                        moveFromTo(pointMoveNow, pointMoveEnd, slotStep);
+                        while (true) {
+                            float x = pointMoveEnd.x - pointMoveNow.x;
+                            float y = pointMoveEnd.y - pointMoveNow.y;
+
+                            if (isZero(x, 0.1) && isZero(y, 0.1))
+                                break;
+
+                            try {
+                                sync_key_move.wait();
+                            } catch (InterruptedException e) {
+                                Log.e(TAG, "wait start move interrupt exception" + e);
+                            }
+                        }
+                    }
+
+                    actionUpAsync(pointMoveEnd, slotStep);
+                }
+
+            }
+        }
+    });
+
+    Thread threadSendPoint = new Thread(() -> {
+        TouchData data;
+        while (true) {
+            synchronized (sync_key_touch) {
+                if (data_list_touch.isEmpty()) {
+                    try {
+                        sync_key_touch.wait();
                     } catch (InterruptedException e) {
-                        // Happens if someone interrupts your thread.
-                        Log.e(TAG, "interrupt exception" + e);
+                        Log.e(TAG, "wait touch data interrupt exception" + e);
+                    }
+                } else {
+
+                    data = data_list_touch.remove(0);
+
+                    if (ACTION_DOWN == data.action) {
+                        int slot = actionDown(data.p);
+                        if (slot >= 0 && slot < MAX_SLOT)
+                            map_id_slot.put(data.id, slot);
+                    } else if (ACTION_UP == data.action) {
+                        Integer slot = map_id_slot.get(data.id);
+                        if (slot != null) {
+                            actionUp(data.p, (int) slot);
+                            map_id_slot.remove(data.id, slot);
+                        }
+                    } else if (ACTION_MOVE == data.action) {
+                        Integer slot = map_id_slot.get(data.id);
+                        if (slot != null)
+                            actionMove(data.p, slot);
                     }
                 }
             }
-        }).start();
 
+        }
+    });
+
+    Thread threadGetData = new Thread(() -> {
+
+        TcpService.TcpData data;
+        while (true) {
+
+            synchronized (TcpService.sync_key_tcp) {
+                try {
+                    if (TcpService.data_list_tcp.isEmpty()) {
+                        TcpService.sync_key_tcp.wait(100);
+                        long now = SystemClock.uptimeMillis();
+                        if (mouse_pressed && now > mouse_timeout) {
+                            mouse_pressed = false;
+                            actionUpAsync(point_touch_end, mouse_slot);
+                        }
+                        //moveOneStep(pointMoveNow, pointMoveEnd);
+                    } else {
+                        data = TcpService.data_list_tcp.remove(0);
+                        dataHandle(data);
+                    }
+                } catch (InterruptedException e) {
+                    // Happens if someone interrupts your thread.
+                    Log.e(TAG, "wait tcp data interrupt exception" + e);
+                }
+            }
+        }
+    });
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        threadMove.start();
+        threadSendPoint.start();
+        threadGetData.start();
         return START_STICKY;
     }
 
@@ -383,7 +539,6 @@ public class TouchService extends Service {
         return i;
     }
 
-
     public void sendPoint(Point p, int slot, int action) {
 
         point_slots[slot].x = p.x;
@@ -400,7 +555,6 @@ public class TouchService extends Service {
         }
 
         final long startTime = SystemClock.uptimeMillis();
-        slotCount();
 
         MotionEvent event = MotionEvent.obtain(startTime, startTime, action, j,
                 pointerProperties, pointerCoordinates,
@@ -411,6 +565,7 @@ public class TouchService extends Service {
         }
         mInst.sendPointerSync(event);
     }
+
 
     public int actionDown(Point p) {
         int slot = acquireSlot();
@@ -436,6 +591,7 @@ public class TouchService extends Service {
             a = MotionEvent.ACTION_POINTER_UP + (slot << MotionEvent.ACTION_POINTER_INDEX_SHIFT);
         else
             return;
+
         sendPoint(p, slot, a);
         releaseSlot(slot);
     }
@@ -444,6 +600,30 @@ public class TouchService extends Service {
         if (slot < 0 || slot >= MAX_SLOT)
             return;
         sendPoint(p, slot, MotionEvent.ACTION_MOVE);
+    }
+
+    int actionAsync(int id, int action, Point p) {
+
+        TouchData data = new TouchData();
+        data.id = id;
+        data.action = action;
+        data.p = new Point(p.x, p.y);
+        data_list_touch.add(data);
+        sync_key_touch.notify();
+        return id;
+    }
+
+    int actionDownAsync(Point p) {
+        int id = req_id++;
+        return actionAsync(id, ACTION_DOWN, p);
+    }
+
+    void actionUpAsync(Point p, int id) {
+        actionAsync(id, ACTION_UP, p);
+    }
+
+    void actionMoveAsync(Point p, int id) {
+        actionAsync(id, ACTION_MOVE, p);
     }
 
     void test() {
@@ -505,8 +685,8 @@ public class TouchService extends Service {
 
     public void tap(float x, float y) {
         Point p = new Point(x, y);
-        int slot = actionDown(p);
-        actionUp(p, slot);
+        int slot = actionDownAsync(p);
+        actionUpAsync(p, slot);
     }
 
     public static void drag(float x1, float y1, float x2, float y2, float duration) {

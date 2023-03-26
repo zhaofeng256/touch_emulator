@@ -13,10 +13,9 @@ import java.util.Arrays;
 public class TcpService extends Service {
 
     public static final String TAG = TcpClient.class.getSimpleName();
-    public static ArrayList<TcpData> data_list = new ArrayList<>();
+    public static ArrayList<TcpData> data_list_tcp = new ArrayList<>();
 
-    public static final Object sync_key = new Object();
-
+    public static final Object sync_key_tcp = new Object();
 
     static class TcpData extends cStruct {
         public TcpData() {
@@ -66,9 +65,9 @@ public class TcpService extends Service {
             Log.d(TAG, "id=" + data.get(V_ID) + " type=" + data.get(V_TYPE) +
                     " param1=" + data.get(V_PARAM1) + " param2=" + data.get(V_PARAM2));*/
 
-            synchronized (sync_key) {
-                TcpService.data_list.add(data);
-                TcpService.sync_key.notify();
+            synchronized (sync_key_tcp) {
+                TcpService.data_list_tcp.add(data);
+                TcpService.sync_key_tcp.notify();
             }
 
 /*            int chk = calc_Checksum(Arrays.copyOfRange(buf, i * data.size,
