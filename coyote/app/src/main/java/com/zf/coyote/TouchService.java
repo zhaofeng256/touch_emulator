@@ -1,5 +1,10 @@
 package com.zf.coyote;
 
+import static com.zf.coyote.definition.ActionType.ACT_DELAY;
+import static com.zf.coyote.definition.ActionType.ACT_DOWN;
+import static com.zf.coyote.definition.ActionType.ACT_MOVE;
+import static com.zf.coyote.definition.ActionType.ACT_TAP;
+import static com.zf.coyote.definition.ActionType.ACT_UP;
 import static com.zf.coyote.definition.EventType;
 import static com.zf.coyote.definition.KeyEvent;
 import static com.zf.coyote.definition.MOUSE_CODE;
@@ -10,13 +15,21 @@ import static com.zf.coyote.definition.MV_RADIUS;
 import static com.zf.coyote.definition.MV_RIGHT;
 import static com.zf.coyote.definition.MV_SPRINT;
 import static com.zf.coyote.definition.MV_UP;
+import static com.zf.coyote.definition.MotionType.MOTION_COMB;
+import static com.zf.coyote.definition.MotionType.MOTION_DRAG;
+import static com.zf.coyote.definition.MotionType.MOTION_SYNC;
+import static com.zf.coyote.definition.MotionType.MOTION_TAP;
+import static com.zf.coyote.definition.MouseButton.MAX_MOUSE_BUTTONS;
 import static com.zf.coyote.definition.VIEW_START;
 import static com.zf.coyote.definition.V_ID;
 import static com.zf.coyote.definition.V_PARAM1;
 import static com.zf.coyote.definition.V_PARAM2;
 import static com.zf.coyote.definition.V_TYPE;
 import static com.zf.coyote.definition.WHEEL_CODE;
-import static com.zf.coyote.definition.position;
+import static com.zf.coyote.definition.map_battle_ground;
+import static com.zf.coyote.definition.map_multiplayer;
+import static com.zf.coyote.definition.map_pve;
+
 
 import android.app.Instrumentation;
 import android.app.Service;
@@ -30,6 +43,7 @@ import android.view.MotionEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Objects;
 
 public class TouchService extends Service {
     public static class Point {
@@ -50,8 +64,8 @@ public class TouchService extends Service {
     Point point_w, point_a, point_s, point_d, point_aw, point_dw, point_as, point_ds;
     Point point_sprint_w, point_sprint_aw, point_sprint_dw;
     Point pointMoveStart, pointMoveEnd, pointMoveNow;
-    Point point_touch_start, point_touch_end, point_mouse_start, point_mouse_old;
-
+    Point point_touch_start;
+    Point point_touch_end = new Point(),  point_mouse_start = new Point(), point_mouse_old = new Point();
     long mouse_timeout;
     boolean mouse_pressed = false;
     byte moveKeyStatus;
@@ -62,13 +76,14 @@ public class TouchService extends Service {
     MotionEvent.PointerCoords[] pointerCoordinates = new MotionEvent.PointerCoords[MAX_SLOT];
     int slotStep;
     int mouse_slot;
-    int[] mouse_button_slot = new int[5];
+    int[] mouse_button_req_id = new int[MAX_MOUSE_BUTTONS];
     int sprint_status;
     int step_len;
-    HashMap<Integer, int[]> key_map = new HashMap<>();
+
     public static final Object sync_key_touch = new Object();
     public static final Object sync_key_move = new Object();
     public static final Object sync_key_release = new Object();
+    public static final Object sync_key_slow_motions = new Object();
     boolean start_move;
 
     static class TouchData {
@@ -78,13 +93,15 @@ public class TouchService extends Service {
     }
 
     int req_id;
-    int ACTION_DOWN = 0;
-    int ACTION_UP = 1;
-    int ACTION_MOVE = 2;
-
+    public int data_id;
+    int default_mode = 0;
     HashMap<Integer, Integer> map_id_slot = new HashMap<>();
 
     public static ArrayList<TouchData> data_list_touch = new ArrayList<>();
+
+    ArrayList<definition.KeyMotions> slowMotionsList = new ArrayList<>();
+    ArrayList<HashMap<Integer, definition.KeyMotions>> key_maps = new ArrayList<>();
+    ArrayList<HashMap<Integer, Integer>> keyboard_sync_req_id = new ArrayList<>();
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -92,33 +109,22 @@ public class TouchService extends Service {
         throw new UnsupportedOperationException("Not yet implemented");
     }
 
-    void initPointers() {
+    void initPointers(int i)  {
 
-        for (int i = 0; i < MAX_SLOT; i++) {
-            point_slots[i] = new Point();
+        HashMap<Integer, definition.KeyMotions> key_map = key_maps.get(i);
 
-            pointerProperties[i] = new MotionEvent.PointerProperties();
-            pointerProperties[i].toolType = MotionEvent.TOOL_TYPE_FINGER;
+        definition.KeyMotions motions = key_map.get(MV_CENTER);
 
-            pointerCoordinates[i] = new MotionEvent.PointerCoords();
-            pointerCoordinates[i].pressure = 1;
-            pointerCoordinates[i].size = 1;
+        synchronized (sync_key_move) {
+            if (motions != null)
+                pointMoveStart = new Point(motions.moves[0][0], motions.moves[0][1]);
+            else
+                pointMoveStart = new Point(243, 513);
 
+
+            pointMoveEnd = new Point(pointMoveStart.x, pointMoveStart.y);
+            pointMoveNow = new Point(pointMoveStart.x, pointMoveStart.y);
         }
-
-        for (int[] ints : position) {
-            key_map.put(ints[0], new int[]{ints[1], ints[2]});
-        }
-
-        int[] i = key_map.get(MV_CENTER);
-        if (i != null)
-            pointMoveStart = new Point(i[0], i[1]);
-        else
-            pointMoveStart = new Point(243, 513);
-
-
-        pointMoveEnd = new Point(pointMoveStart.x, pointMoveStart.y);
-        pointMoveNow = new Point(pointMoveStart.x, pointMoveStart.y);
 
         point_w = new Point(pointMoveStart.x, pointMoveStart.y - MV_RADIUS);
         point_a = new Point(pointMoveStart.x - MV_RADIUS, pointMoveStart.y);
@@ -136,24 +142,46 @@ public class TouchService extends Service {
         point_sprint_aw = new Point(pointMoveStart.x - f, pointMoveStart.y - f);
         point_sprint_dw = new Point(pointMoveStart.x + f, pointMoveStart.y - f);
 
-        i = key_map.get(VIEW_START);
-        if (i != null)
-            point_touch_start = new Point(i[0], i[1]);
+        motions = key_map.get(VIEW_START);
+        if (motions != null)
+            point_touch_start = new Point(motions.moves[0][0], motions.moves[0][1]);
         else
             point_touch_start = new Point(846, 264);
-        point_touch_end = new Point();
-        point_mouse_start = new Point();
-        point_mouse_old = new Point();
 
         step_len = MV_RADIUS + 128;
 
     }
 
     public TouchService() {
-        initPointers();
+        for (int i = 0; i < MAX_SLOT; i++) {
+            point_slots[i] = new Point();
+
+            pointerProperties[i] = new MotionEvent.PointerProperties();
+            pointerProperties[i].toolType = MotionEvent.TOOL_TYPE_FINGER;
+
+            pointerCoordinates[i] = new MotionEvent.PointerCoords();
+            pointerCoordinates[i].pressure = 1;
+            pointerCoordinates[i].size = 1;
+
+        }
+
+        key_maps.add(map_multiplayer);
+        key_maps.add(map_battle_ground);
+        key_maps.add(map_pve);
+
+        for(int i = 0; i< key_maps.size(); i++) {
+            HashMap<Integer, Integer> m = new HashMap<>();
+            for (int k : key_maps.get(i).keySet()) {
+                if (Objects.requireNonNull(key_maps.get(i).get(k)).type == MOTION_SYNC)
+                    m.put(k, 0);
+            }
+            keyboard_sync_req_id.add(m);
+        }
+
+
+        initPointers(default_mode);
     }
 
-    public int data_id;
 
     void dataHandle(TcpService.TcpData data) {
         if (data == null) {
@@ -244,30 +272,72 @@ public class TouchService extends Service {
                 }
 
             } else {
-                int[] pos = key_map.get(param1);
-                if (pos != null) {
-                    if (param2 == KeyEvent.KEY_DOWN) {
-                        tap(pos[0], pos[1]);
+                definition.KeyMotions motions = key_maps.get(default_mode).get(param1);
+                if (motions != null) {
+                    if (motions.type == MOTION_TAP) {
+                        if (param2 == KeyEvent.KEY_DOWN)
+                            tap(motions.moves[0][0], motions.moves[0][1]);
+                    } else if (motions.type == MOTION_SYNC) {
+                        Point p = new Point(motions.moves[0][0], motions.moves[0][1]);
+                        HashMap<Integer, Integer> map = keyboard_sync_req_id.get(default_mode);
+
+                        if (param2 == KeyEvent.KEY_DOWN) {
+                            int req_id = actionDownAsync(p);
+                            map.put(param1, req_id);
+                        } else if (param2 == KeyEvent.KEY_UP) {
+                            if (map.containsKey(param1))
+                                actionUpAsync(p, map.get(param1));
+                        }
+                    } else {
+                        synchronized (sync_key_slow_motions) {
+                            slowMotionsList.add(motions);
+                            sync_key_slow_motions.notify();
+                        }
                     }
                 }
             }
         } else if (EventType.TYPE_BUTTON == type) {
-            int[] pos = key_map.get(param1 + MOUSE_CODE);
-            if (pos != null) {
-                Point p = new Point(pos[0], pos[1]);
-                if (param2 == KeyEvent.KEY_DOWN) {
-                    mouse_button_slot[param1] = actionDownAsync(p);
-
-                } else if (param2 == KeyEvent.KEY_UP) {
-                    actionUpAsync(p, mouse_button_slot[param1]);
+            definition.KeyMotions motions = key_maps.get(default_mode).get(param1 + MOUSE_CODE);
+            if (motions != null) {
+                if (motions.type == MOTION_TAP) {
+                    if (param2 == KeyEvent.KEY_DOWN)
+                        tap(motions.moves[0][0], motions.moves[0][1]);
+                } else if (motions.type == MOTION_SYNC) {
+                    Point p = new Point(motions.moves[0][0], motions.moves[0][1]);
+                    if (param2 == KeyEvent.KEY_DOWN) {
+                        mouse_button_req_id[param1] = actionDownAsync(p);
+                    } else if (param2 == KeyEvent.KEY_UP) {
+                        actionUpAsync(p, mouse_button_req_id[param1]);
+                    }
+                } else {
+                    synchronized (sync_key_slow_motions) {
+                        slowMotionsList.add(motions);
+                        sync_key_slow_motions.notify();
+                    }
                 }
             }
         } else if (EventType.TYPE_WHEEL == type) {
-            int[] pos = key_map.get(param1 + WHEEL_CODE);
-            if (pos != null)
-                tap(pos[0], pos[1]);
+
+            definition.KeyMotions motions = key_maps.get(default_mode).get(param1 + WHEEL_CODE);
+            if (motions != null) {
+                if (motions.type == MOTION_TAP) {
+                    tap(motions.moves[0][0], motions.moves[0][1]);
+                } else {
+                    synchronized (sync_key_slow_motions) {
+                        slowMotionsList.add(motions);
+                        sync_key_slow_motions.notify();
+                    }
+                }
+            }
+        } else if (EventType.TYPE_CONTROL == type) {
+            if (param1 == 0) {
+                Log.d(TAG, "switch to mode " + param2);
+                default_mode = param2;
+                initPointers(param2);
+            }
         }
     }
+
 
     Point step(float n, Point p, Point start, Point end, int req_id) {
         Point t = new Point();
@@ -308,7 +378,7 @@ public class TouchService extends Service {
         actionMoveAsync(pointMoveEnd, slotStep);
     }
 
-    Thread threadMove = new Thread(new Runnable() {
+    Thread threadMoveDirection = new Thread(new Runnable() {
         @Override
         public void run() {
             synchronized (sync_key_move) {
@@ -361,17 +431,17 @@ public class TouchService extends Service {
 
                     data = data_list_touch.remove(0);
 
-                    if (ACTION_DOWN == data.action) {
+                    if (ACT_DOWN == data.action) {
                         int slot = actionDown(data.p);
                         if (slot >= 0 && slot < MAX_SLOT)
                             map_id_slot.put(data.id, slot);
-                    } else if (ACTION_UP == data.action) {
+                    } else if (ACT_UP == data.action) {
                         Integer slot = map_id_slot.get(data.id);
                         if (slot != null) {
                             actionUp(data.p, (int) slot);
                             map_id_slot.remove(data.id, slot);
                         }
-                    } else if (ACTION_MOVE == data.action) {
+                    } else if (ACT_MOVE == data.action) {
                         Integer slot = map_id_slot.get(data.id);
                         if (slot != null)
                             actionMove(data.p, slot);
@@ -422,9 +492,44 @@ public class TouchService extends Service {
         }
     });
 
+    Thread threadMotionsDelay = new Thread(() -> {
+        synchronized (sync_key_slow_motions){
+            while(true) {
+                while (slowMotionsList.isEmpty()) {
+                    try {
+                        sync_key_slow_motions.wait();
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+
+                definition.KeyMotions motions = slowMotionsList.remove(0);
+                if (motions.type == MOTION_DRAG){
+                    drag(motions.moves[0][0], motions.moves[0][1], motions.moves[0][2], motions.moves[0][3], 100);
+                } else if (motions.type == MOTION_COMB){
+                    int req_id = 0;
+                    for( int[] m : motions.moves) {
+                        if (m[0] == ACT_TAP)
+                            tap(m[1], m[2]);
+                        else if (m[0] == ACT_DOWN)
+                            req_id = actionDownAsync(new Point(m[1], m[2]));
+                        else if (m[0] == ACT_UP)
+                            actionUpAsync(new Point(m[1], m[2]), req_id);
+                        else if (m[0] == ACT_MOVE)
+                            actionMoveAsync(new Point(m[1], m[2]), req_id);
+                        else if (m[0] == ACT_DELAY)
+                            SystemClock.sleep(m[1]);
+
+                    }
+                }
+            }
+        }
+    });
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        threadMove.start();
+        threadMoveDirection.start();
+        threadMotionsDelay.start();
         threadSendPoint.start();
         threadReleaseTouch.start();
         threadGetData.start();
@@ -647,15 +752,15 @@ public class TouchService extends Service {
 
     int actionDownAsync(Point p) {
         int id = req_id++;
-        return actionAsync(id, ACTION_DOWN, p);
+        return actionAsync(id, ACT_DOWN, p);
     }
 
     void actionUpAsync(Point p, int id) {
-        actionAsync(id, ACTION_UP, p);
+        actionAsync(id, ACT_UP, p);
     }
 
     void actionMoveAsync(Point p, int id) {
-        actionAsync(id, ACTION_MOVE, p);
+        actionAsync(id, ACT_MOVE, p);
     }
 
     void test() {
@@ -721,18 +826,19 @@ public class TouchService extends Service {
         actionUpAsync(p, slot);
     }
 
-    public static void drag(float x1, float y1, float x2, float y2, float duration) {
+    public void drag(float x1, float y1, float x2, float y2, float duration) {
         final int interval = 25;
-        int steps = (int) (duration / interval + 1);
+        int steps = (int) (duration / interval);
+        if (duration % interval > 0) steps++;
         float dx = (x2 - x1) / steps;
         float dy = (y2 - y1) / steps;
-        down(x1, y1);
+        int id = actionDownAsync(new Point(x1, y1));
         for (int step = 0; step < steps; step++) {
             SystemClock.sleep(interval);
-            move(x1 + step * dx, y1 + step * dy);
+            actionMoveAsync(new Point(x1 + step * dx, y1 + step * dy), id);
         }
         SystemClock.sleep(interval);
-        up(x2, y2);
+        actionUpAsync(new Point(x2, y2), id);
     }
 
     private static void down(float x, float y) {
