@@ -1,5 +1,6 @@
 package com.zf.coyote;
 
+import static com.zf.coyote.definition.MotionType.MOTION_DRAG;
 import static com.zf.coyote.definition.MotionType.MOTION_NONE;
 import static com.zf.coyote.definition.MotionType.MOTION_SYNC;
 import static com.zf.coyote.definition.MotionType.MOTION_TAP;
@@ -39,6 +40,20 @@ public class definition {
     public static class WheelEvent {
         public static int ROLL_BACK = 0;
         public static int ROLL_FORWARD = 1;
+    }
+
+
+    public static class ControlType {
+        public static int MAIN_MODE = 0;
+        public static int SUB_MODE = 1;
+    }
+
+    public static class SubModeType {
+
+        public static int NONE_SUB_MODE = 0;
+        public static int DRIVE_MOTO = 1;
+        public static int DRIVE_CHOPPER = 2;
+        public static int DRIVE_COYOTE = 3;
     }
 
     public static int VK_ESC = 1;
@@ -144,7 +159,7 @@ public class definition {
     }
 
 
-    public static HashMap<Integer, KeyMotions> map_multiplayer = new HashMap<Integer, KeyMotions>() {{
+    public static HashMap<Integer, KeyMotions> map_multiplayer = new HashMap<>() {{
         put(VK_ALT, new KeyMotions("", MOTION_TAP, new int[][]{{1090, 660}}));
         put(VK_SPACE, new KeyMotions("", MOTION_TAP, new int[][]{{1227, 510}}));
         put(VK_CAPS, new KeyMotions("", MOTION_TAP, new int[][]{{1208, 644}}));
@@ -177,13 +192,22 @@ public class definition {
         put(VIEW_START, new KeyMotions("view start", MOTION_NONE, new int[][]{{846, 264}}));
     }};
 
-    public static HashMap<Integer, KeyMotions> map_battle_ground = new HashMap<Integer, KeyMotions>() {{
+    public static HashMap<Integer, KeyMotions> map_battle_ground = new HashMap<>() {{
         put(VK_ALT, new KeyMotions("", MOTION_TAP, new int[][]{{1092, 660}}));
         put(VK_SPACE, new KeyMotions("", MOTION_TAP, new int[][]{{1230, 507}}));
         put(VK_CAPS, new KeyMotions("", MOTION_TAP, new int[][]{{1205, 644}}));
         put(VK_R, new KeyMotions("", MOTION_TAP, new int[][]{{700, 670}}));
         put(VK_1, new KeyMotions("", MOTION_TAP, new int[][]{{557, 620}}));
         put(VK_2, new KeyMotions("", MOTION_TAP, new int[][]{{791, 620}}));
+        put(VK_3, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 817, 618}}));
+        put(VK_4, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 825, 618}}));
+        put(VK_5, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 831, 625}}));
+        put(VK_6, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 829, 633}}));
+        put(VK_7, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 813, 633}}));
+        put(VK_8, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 811, 625}}));
+        put(VK_9, new KeyMotions("", MOTION_DRAG, new int[][]{{451, 624, 441, 624}}));
+        put(VK_0, new KeyMotions("", MOTION_DRAG, new int[][]{{451, 624, 451, 614}}));
+        put(VK_MINUS, new KeyMotions("", MOTION_DRAG, new int[][]{{451, 624, 461, 624}}));
         put(VK_T, new KeyMotions("", MOTION_TAP, new int[][]{{450, 620}}));
         put(VK_TAB, new KeyMotions("", MOTION_TAP, new int[][]{{375, 617}}));
         put(VK_E, new KeyMotions("", MOTION_TAP, new int[][]{{1220, 260}}));
@@ -191,7 +215,7 @@ public class definition {
         put(VK_G, new KeyMotions("", MOTION_TAP, new int[][]{{792, 413}}));//745 347 //879 516 sit CAR
         put(VK_H, new KeyMotions("", MOTION_TAP, new int[][]{{792, 490}}));//502 431
         put(VK_Q, new KeyMotions("", MOTION_TAP, new int[][]{{974, 438}}));//surf
-        put(VK_C, new KeyMotions("", MOTION_TAP, new int[][]{{1238, 56}}));
+        put(VK_C, new KeyMotions("", MOTION_TAP, new int[][]{{1239, 51}}));
         put(VK_T, new KeyMotions("", MOTION_TAP, new int[][]{{981, 95}}));
         put(VK_X, new KeyMotions("", MOTION_TAP, new int[][]{{1110, 228}}));
         put(VK_Y, new KeyMotions("", MOTION_TAP, new int[][]{{981, 148}}));
@@ -208,7 +232,7 @@ public class definition {
         put(VIEW_START, new KeyMotions("", MOTION_NONE, new int[][]{{743, 409}}));
     }};
 
-    public static HashMap<Integer, KeyMotions> map_pve = new HashMap<Integer, KeyMotions>() {{
+    public static HashMap<Integer, KeyMotions> map_pve = new HashMap<>() {{
         put(VK_ALT, new KeyMotions("", MOTION_TAP, new int[][]{{1090, 660}}));
         put(VK_SPACE, new KeyMotions("", MOTION_TAP, new int[][]{{1227, 510}}));
         put(VK_CAPS, new KeyMotions("", MOTION_TAP, new int[][]{{1208, 644}}));
@@ -241,6 +265,30 @@ public class definition {
         put(VIEW_START, new KeyMotions("view start", MOTION_NONE, new int[][]{{846, 264}}));
     }};
 
+    public static HashMap<Integer, KeyMotions> map_moto = new HashMap<>() {{
+        put(VK_Q, new KeyMotions("head up", MOTION_SYNC, new int[][]{{949, 409}}));
+        put(VK_E, new KeyMotions("head down", MOTION_SYNC, new int[][]{{949, 540}}));
+        put(VK_SPACE, new KeyMotions("stop", MOTION_SYNC, new int[][]{{1071, 405}}));
+        put(VK_G, new KeyMotions("beep", MOTION_SYNC, new int[][]{{1233, 515}}));
+        put(VK_F, new KeyMotions("off", MOTION_TAP, new int[][]{{1207, 270}}));
+    }};
+
+
+    public static HashMap<Integer, KeyMotions> map_chopper = new HashMap<>() {{
+        put(BT_LEFT, new KeyMotions("up", MOTION_SYNC, new int[][]{{1133, 391}}));
+        put(BT_RIGHT, new KeyMotions("down", MOTION_SYNC, new int[][]{{1134, 567}}));
+        put(VK_E, new KeyMotions("hot", MOTION_TAP, new int[][]{{989, 439}}));
+        put(VK_F, new KeyMotions("off", MOTION_TAP, new int[][]{{1207, 270}}));
+    }};
+
+
+    public static HashMap<Integer, KeyMotions> map_coyote = new HashMap<>() {{
+        put(BT_LEFT, new KeyMotions("fire", MOTION_SYNC, new int[][]{{936, 491}}));
+        put(BT_RIGHT, new KeyMotions("missile", MOTION_TAP, new int[][]{{954, 611}}));
+        put(VK_SPACE, new KeyMotions("stop", MOTION_SYNC, new int[][]{{1026, 415}}));
+        put(VK_E, new KeyMotions("hot", MOTION_TAP, new int[][]{{1162, 415}}));
+        put(VK_F, new KeyMotions("off", MOTION_TAP, new int[][]{{1207, 270}}));
+    }};
     public static int[][] position1 = new int[][]{
             {VK_ALT, 1092, 660},
             {VK_SPACE, 1230, 507},

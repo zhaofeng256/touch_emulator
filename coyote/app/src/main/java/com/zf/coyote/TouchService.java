@@ -5,9 +5,10 @@ import static com.zf.coyote.definition.ActionType.ACT_DOWN;
 import static com.zf.coyote.definition.ActionType.ACT_MOVE;
 import static com.zf.coyote.definition.ActionType.ACT_TAP;
 import static com.zf.coyote.definition.ActionType.ACT_UP;
+import static com.zf.coyote.definition.ControlType.MAIN_MODE;
+import static com.zf.coyote.definition.ControlType.SUB_MODE;
 import static com.zf.coyote.definition.EventType;
 import static com.zf.coyote.definition.KeyEvent;
-import static com.zf.coyote.definition.MOUSE_CODE;
 import static com.zf.coyote.definition.MV_CENTER;
 import static com.zf.coyote.definition.MV_DOWN;
 import static com.zf.coyote.definition.MV_LEFT;
@@ -20,16 +21,19 @@ import static com.zf.coyote.definition.MotionType.MOTION_DRAG;
 import static com.zf.coyote.definition.MotionType.MOTION_SYNC;
 import static com.zf.coyote.definition.MotionType.MOTION_TAP;
 import static com.zf.coyote.definition.MouseButton.MAX_MOUSE_BUTTONS;
+import static com.zf.coyote.definition.SubModeType.NONE_SUB_MODE;
 import static com.zf.coyote.definition.VIEW_START;
+import static com.zf.coyote.definition.VK_F;
 import static com.zf.coyote.definition.V_ID;
 import static com.zf.coyote.definition.V_PARAM1;
 import static com.zf.coyote.definition.V_PARAM2;
 import static com.zf.coyote.definition.V_TYPE;
-import static com.zf.coyote.definition.WHEEL_CODE;
 import static com.zf.coyote.definition.map_battle_ground;
+import static com.zf.coyote.definition.map_chopper;
+import static com.zf.coyote.definition.map_coyote;
+import static com.zf.coyote.definition.map_moto;
 import static com.zf.coyote.definition.map_multiplayer;
 import static com.zf.coyote.definition.map_pve;
-
 
 import android.app.Instrumentation;
 import android.app.Service;
@@ -65,7 +69,7 @@ public class TouchService extends Service {
     Point point_sprint_w, point_sprint_aw, point_sprint_dw;
     Point pointMoveStart, pointMoveEnd, pointMoveNow;
     Point point_touch_start;
-    Point point_touch_end = new Point(),  point_mouse_start = new Point(), point_mouse_old = new Point();
+    Point point_touch_end = new Point(), point_mouse_start = new Point(), point_mouse_old = new Point();
     long mouse_timeout;
     boolean mouse_pressed = false;
     byte moveKeyStatus;
@@ -94,14 +98,17 @@ public class TouchService extends Service {
 
     int req_id;
     public int data_id;
-    int default_mode = 0;
+    int main_mode = 0;
+    int sub_mode = NONE_SUB_MODE;
     HashMap<Integer, Integer> map_id_slot = new HashMap<>();
 
     public static ArrayList<TouchData> data_list_touch = new ArrayList<>();
 
     ArrayList<definition.KeyMotions> slowMotionsList = new ArrayList<>();
     ArrayList<HashMap<Integer, definition.KeyMotions>> key_maps = new ArrayList<>();
-    ArrayList<HashMap<Integer, Integer>> keyboard_sync_req_id = new ArrayList<>();
+    ArrayList<HashMap<Integer, definition.KeyMotions>> sub_battle_ground = new ArrayList<>();
+    ArrayList<HashMap<Integer, Integer>> list_keyboard_sync_req_id = new ArrayList<>();
+    HashMap<HashMap<Integer, definition.KeyMotions>, ArrayList<HashMap<Integer, definition.KeyMotions>>> hash_main_sub = new HashMap<>();
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -109,7 +116,7 @@ public class TouchService extends Service {
         throw new UnsupportedOperationException("Not yet implemented");
     }
 
-    void initPointers(int i)  {
+    void initPointers(int i) {
 
         HashMap<Integer, definition.KeyMotions> key_map = key_maps.get(i);
 
@@ -164,22 +171,56 @@ public class TouchService extends Service {
             pointerCoordinates[i].size = 1;
 
         }
-
+        /* list of main map */
         key_maps.add(map_multiplayer);
         key_maps.add(map_battle_ground);
         key_maps.add(map_pve);
 
-        for(int i = 0; i< key_maps.size(); i++) {
+        /* sub map list of battle ground map */
+        sub_battle_ground.add(map_moto);
+        sub_battle_ground.add(map_chopper);
+        sub_battle_ground.add(map_coyote);
+
+        /* hash sub to one main */
+        hash_main_sub.put(map_battle_ground, sub_battle_ground);
+
+
+        /* for each main map */
+        for (int i = 0; i < key_maps.size(); i++) {
             HashMap<Integer, Integer> m = new HashMap<>();
+
+            /* get sync keys in this main map */
             for (int k : key_maps.get(i).keySet()) {
-                if (Objects.requireNonNull(key_maps.get(i).get(k)).type == MOTION_SYNC)
+                if (Objects.requireNonNull(key_maps.get(i).get(k)).type == MOTION_SYNC) {
                     m.put(k, 0);
+                    Log.d(TAG, "main map " + i + "sync key " + k);
+                }
             }
-            keyboard_sync_req_id.add(m);
+
+            /* get all sync keys in sub map */
+            for (HashMap<Integer, definition.KeyMotions> h : hash_main_sub.keySet()) {
+                /* find this main map in main-sub hash */
+                if (h == key_maps.get(i)) {
+
+                    /* for each sub map in the sub list */
+                    for (HashMap<Integer, definition.KeyMotions> sub : Objects.requireNonNull(hash_main_sub.get(h))) {
+                        /* for each key of sub */
+                        for (int k : sub.keySet()) {
+                            /* if motion type of this key is sync */
+                            if (Objects.requireNonNull(sub.get(k)).type == MOTION_SYNC) {
+                                m.put(k, 0);
+                                Log.d(TAG, "sub map of " + i + "sync key " + k);
+                            }
+                        }
+                    }
+                }
+            }
+
+            list_keyboard_sync_req_id.add(m);
         }
 
 
-        initPointers(default_mode);
+        initPointers(main_mode);
     }
 
 
@@ -272,32 +313,75 @@ public class TouchService extends Service {
                 }
 
             } else {
-                definition.KeyMotions motions = key_maps.get(default_mode).get(param1);
+                /*  for keyboard keys except move direction and sprint  */
+                definition.KeyMotions motions = key_maps.get(main_mode).get(param1);
+                if (sub_mode != NONE_SUB_MODE) {
+                    /* get sub mode list of this main mode */
+                    ArrayList<HashMap<Integer, definition.KeyMotions>> list = hash_main_sub.get(key_maps.get(main_mode));
+                    if (list != null) {
+                        /* get sub map */
+                        HashMap<Integer, definition.KeyMotions> sub = list.get(sub_mode);
+                        /* if sub contains this key, use sub map instead */
+                        if (sub.containsKey(param1)) {
+                            motions = sub.get(param1);
+                        }
+                    }
+                }
+
                 if (motions != null) {
                     if (motions.type == MOTION_TAP) {
-                        if (param2 == KeyEvent.KEY_DOWN)
+                        if (param2 == KeyEvent.KEY_DOWN) {
                             tap(motions.moves[0][0], motions.moves[0][1]);
+
+                            /* EXIT SUB MODE IF <F> IS PRESSED DOWN */
+                            if (sub_mode != NONE_SUB_MODE && param1 == VK_F) {
+                                sub_mode = NONE_SUB_MODE;
+                                Log.d(TAG, "EXIT SUB MODE");
+                            }
+                        }
                     } else if (motions.type == MOTION_SYNC) {
                         Point p = new Point(motions.moves[0][0], motions.moves[0][1]);
-                        HashMap<Integer, Integer> map = keyboard_sync_req_id.get(default_mode);
 
-                        if (param2 == KeyEvent.KEY_DOWN) {
-                            int req_id = actionDownAsync(p);
-                            map.put(param1, req_id);
-                        } else if (param2 == KeyEvent.KEY_UP) {
-                            if (map.containsKey(param1))
-                                actionUpAsync(p, map.get(param1));
+                        /* keyboard sync type hash <key, request id> in this main mode */
+                        HashMap<Integer, Integer> map = list_keyboard_sync_req_id.get(main_mode);
+                        if (map != null) {
+                            if (param2 == KeyEvent.KEY_DOWN) {
+                                int req_id = actionDownAsync(p);
+                                map.put(param1, req_id);
+                            } else if (param2 == KeyEvent.KEY_UP) {
+                                if (map.containsKey(param1)) {
+                                    Object req_id = map.get(param1);
+                                    if (null != req_id)
+                                        actionUpAsync(p, (int) req_id);
+                                }
+                            }
                         }
+
                     } else {
                         synchronized (sync_key_slow_motions) {
-                            slowMotionsList.add(motions);
-                            sync_key_slow_motions.notify();
+                            if (param2 == KeyEvent.KEY_DOWN) {
+                                slowMotionsList.add(motions);
+                                sync_key_slow_motions.notify();
+                            }
                         }
                     }
                 }
             }
         } else if (EventType.TYPE_BUTTON == type) {
-            definition.KeyMotions motions = key_maps.get(default_mode).get(param1 + MOUSE_CODE);
+            /*  for mouse buttons  */
+            definition.KeyMotions motions = key_maps.get(main_mode).get(param1);
+            if (sub_mode != NONE_SUB_MODE) {
+                /* get sub mode list of this main mode */
+                ArrayList<HashMap<Integer, definition.KeyMotions>> list = hash_main_sub.get(key_maps.get(main_mode));
+                if (list != null) {
+                    /* get sub map */
+                    HashMap<Integer, definition.KeyMotions> sub = list.get(sub_mode);
+                    /* if sub contains this key, use sub map instead */
+                    if (sub.containsKey(param1)) {
+                        motions = sub.get(param1);
+                    }
+                }
+            }
             if (motions != null) {
                 if (motions.type == MOTION_TAP) {
                     if (param2 == KeyEvent.KEY_DOWN)
@@ -311,14 +395,29 @@ public class TouchService extends Service {
                     }
                 } else {
                     synchronized (sync_key_slow_motions) {
-                        slowMotionsList.add(motions);
-                        sync_key_slow_motions.notify();
+                        if (param2 == KeyEvent.KEY_DOWN) {
+                            slowMotionsList.add(motions);
+                            sync_key_slow_motions.notify();
+                        }
                     }
                 }
             }
         } else if (EventType.TYPE_WHEEL == type) {
 
-            definition.KeyMotions motions = key_maps.get(default_mode).get(param1 + WHEEL_CODE);
+            definition.KeyMotions motions = key_maps.get(main_mode).get(param1);
+            if (sub_mode != NONE_SUB_MODE) {
+                /* get sub mode list of this main mode */
+                ArrayList<HashMap<Integer, definition.KeyMotions>> list = hash_main_sub.get(key_maps.get(main_mode));
+                if (list != null) {
+                    /* get sub map */
+                    HashMap<Integer, definition.KeyMotions> sub = list.get(sub_mode);
+                    /* if sub contains this key, use sub map instead */
+                    if (sub.containsKey(param1)) {
+                        motions = sub.get(param1);
+                    }
+                }
+            }
+
             if (motions != null) {
                 if (motions.type == MOTION_TAP) {
                     tap(motions.moves[0][0], motions.moves[0][1]);
@@ -330,10 +429,14 @@ public class TouchService extends Service {
                 }
             }
         } else if (EventType.TYPE_CONTROL == type) {
-            if (param1 == 0) {
+            if (param1 == MAIN_MODE) {
                 Log.d(TAG, "switch to mode " + param2);
-                default_mode = param2;
+                main_mode = param2;
+                sub_mode = NONE_SUB_MODE;
                 initPointers(param2);
+            } else if (param1 == SUB_MODE) {
+                Log.d(TAG, "switch to drive " + param2);
+                sub_mode = param2;
             }
         }
     }
@@ -493,8 +596,8 @@ public class TouchService extends Service {
     });
 
     Thread threadMotionsDelay = new Thread(() -> {
-        synchronized (sync_key_slow_motions){
-            while(true) {
+        synchronized (sync_key_slow_motions) {
+            while (true) {
                 while (slowMotionsList.isEmpty()) {
                     try {
                         sync_key_slow_motions.wait();
@@ -504,11 +607,11 @@ public class TouchService extends Service {
                 }
 
                 definition.KeyMotions motions = slowMotionsList.remove(0);
-                if (motions.type == MOTION_DRAG){
+                if (motions.type == MOTION_DRAG) {
                     drag(motions.moves[0][0], motions.moves[0][1], motions.moves[0][2], motions.moves[0][3], 100);
-                } else if (motions.type == MOTION_COMB){
+                } else if (motions.type == MOTION_COMB) {
                     int req_id = 0;
-                    for( int[] m : motions.moves) {
+                    for (int[] m : motions.moves) {
                         if (m[0] == ACT_TAP)
                             tap(m[1], m[2]);
                         else if (m[0] == ACT_DOWN)
@@ -752,6 +855,9 @@ public class TouchService extends Service {
 
     int actionDownAsync(Point p) {
         int id = req_id++;
+        /* drop 0 */
+        if (id == 0)
+            id++;
         return actionAsync(id, ACT_DOWN, p);
     }
 
