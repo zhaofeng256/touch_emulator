@@ -4,6 +4,7 @@ import static com.zf.coyote.definition.MotionType.MOTION_DRAG;
 import static com.zf.coyote.definition.MotionType.MOTION_NONE;
 import static com.zf.coyote.definition.MotionType.MOTION_SYNC;
 import static com.zf.coyote.definition.MotionType.MOTION_TAP;
+import static com.zf.coyote.definition.MotionType.MOTION_TRANS;
 
 import java.util.HashMap;
 
@@ -17,10 +18,11 @@ public class definition {
 
     public static class EventType {
         public static int TYPE_KEYBOARD = 0;
-        public static int TYPE_MOUSE = 1;
-        public static int TYPE_BUTTON = 2;
-        public static int TYPE_WHEEL = 3;
+        public static int TYPE_MOUSE_AXIS = 1;
+        public static int TYPE_MOUSE_BUTTON = 2;
+        public static int TYPE_MOUSE_WHEEL = 3;
         public static int TYPE_CONTROL = 4;
+
     }
 
     public static class KeyEvent {
@@ -46,11 +48,23 @@ public class definition {
     public static class ControlType {
         public static int MAIN_MODE = 0;
         public static int SUB_MODE = 1;
+        public static int MAP_MODE = 2;
+        public static int TRANSPARENT_MODE = 3;
+    }
+    public static class MapModeStatus {
+        public static int MAP_MODE_OFF = 0;
+        public static int MAP_MODE_ON = 1;
+    }
+
+    public static class TransPointStatus {
+        public static int TRANSPARENT_OFF = 0;
+        public static int TRANSPARENT_ON = 1;
     }
 
     public static class SubModeType {
 
         public static int NONE_SUB_MODE = 0;
+        public static int SUB_MODE_OFFSET = 1;
         public static int DRIVE_MOTO = 1;
         public static int DRIVE_CHOPPER = 2;
         public static int DRIVE_COYOTE = 3;
@@ -138,6 +152,7 @@ public class definition {
         public static int MOTION_SYNC = 2;
         public static int MOTION_DRAG = 3;
         public static int MOTION_COMB = 4;
+        public static int MOTION_TRANS = 5;
     }
 
     public static class KeyMotions {
@@ -289,6 +304,21 @@ public class definition {
         put(VK_E, new KeyMotions("hot", MOTION_TAP, new int[][]{{1162, 415}}));
         put(VK_F, new KeyMotions("off", MOTION_TAP, new int[][]{{1207, 270}}));
     }};
+
+
+    public static HashMap<Integer, KeyMotions> map_map_mode = new HashMap<>() {{
+        put(BT_LEFT, new KeyMotions("transparent", MOTION_TRANS, new int[][]{{0, 0}}));
+        put(WL_BACK, new KeyMotions("zoom in", MOTION_TAP, new int[][]{{1239, 133}}));
+        put(WL_FORWARD, new KeyMotions("zoom out", MOTION_TAP, new int[][]{{1239, 649}}));
+        put(BT_RIGHT, new KeyMotions("delete mark", MOTION_TAP, new int[][]{{858, 660}}));
+        put(BT_MIDDLE, new KeyMotions("center", MOTION_TAP, new int[][]{{1167, 660}}));
+        put(BT_FORWARD, new KeyMotions("self mark", MOTION_TAP, new int[][]{{1041, 660}}));
+    }};
+
+    public static HashMap<Integer, KeyMotions> map_transparent_mode = new HashMap<>() {{
+        put(BT_LEFT, new KeyMotions("transparent", MOTION_TRANS, new int[][]{{0, 0}}));
+    }};
+
     public static int[][] position1 = new int[][]{
             {VK_ALT, 1092, 660},
             {VK_SPACE, 1230, 507},

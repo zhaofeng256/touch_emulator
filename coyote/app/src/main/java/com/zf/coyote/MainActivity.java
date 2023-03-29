@@ -15,10 +15,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        setContentView(R.layout.activity_main);
+        //setContentView(R.layout.activity_main);
         startService(new Intent(this, TouchService.class));
         startService(new Intent(this, TcpService.class));
-        //finish();
+        finish();
 
 /*        View myView = findViewById(android.R.id.content).getRootView();
         myView.setOnTouchListener(handleTouch);*/

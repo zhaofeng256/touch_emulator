@@ -6,7 +6,9 @@ import static com.zf.coyote.definition.ActionType.ACT_MOVE;
 import static com.zf.coyote.definition.ActionType.ACT_TAP;
 import static com.zf.coyote.definition.ActionType.ACT_UP;
 import static com.zf.coyote.definition.ControlType.MAIN_MODE;
+import static com.zf.coyote.definition.ControlType.MAP_MODE;
 import static com.zf.coyote.definition.ControlType.SUB_MODE;
+import static com.zf.coyote.definition.ControlType.TRANSPARENT_MODE;
 import static com.zf.coyote.definition.EventType;
 import static com.zf.coyote.definition.KeyEvent;
 import static com.zf.coyote.definition.MV_CENTER;
@@ -16,14 +18,19 @@ import static com.zf.coyote.definition.MV_RADIUS;
 import static com.zf.coyote.definition.MV_RIGHT;
 import static com.zf.coyote.definition.MV_SPRINT;
 import static com.zf.coyote.definition.MV_UP;
+import static com.zf.coyote.definition.MapModeStatus.MAP_MODE_OFF;
+import static com.zf.coyote.definition.MapModeStatus.MAP_MODE_ON;
 import static com.zf.coyote.definition.MotionType.MOTION_COMB;
 import static com.zf.coyote.definition.MotionType.MOTION_DRAG;
 import static com.zf.coyote.definition.MotionType.MOTION_SYNC;
 import static com.zf.coyote.definition.MotionType.MOTION_TAP;
+import static com.zf.coyote.definition.MotionType.MOTION_TRANS;
 import static com.zf.coyote.definition.MouseButton.MAX_MOUSE_BUTTONS;
 import static com.zf.coyote.definition.SubModeType.NONE_SUB_MODE;
+import static com.zf.coyote.definition.SubModeType.SUB_MODE_OFFSET;
+import static com.zf.coyote.definition.TransPointStatus.TRANSPARENT_OFF;
+import static com.zf.coyote.definition.TransPointStatus.TRANSPARENT_ON;
 import static com.zf.coyote.definition.VIEW_START;
-import static com.zf.coyote.definition.VK_F;
 import static com.zf.coyote.definition.V_ID;
 import static com.zf.coyote.definition.V_PARAM1;
 import static com.zf.coyote.definition.V_PARAM2;
@@ -31,9 +38,11 @@ import static com.zf.coyote.definition.V_TYPE;
 import static com.zf.coyote.definition.map_battle_ground;
 import static com.zf.coyote.definition.map_chopper;
 import static com.zf.coyote.definition.map_coyote;
+import static com.zf.coyote.definition.map_map_mode;
 import static com.zf.coyote.definition.map_moto;
 import static com.zf.coyote.definition.map_multiplayer;
 import static com.zf.coyote.definition.map_pve;
+import static com.zf.coyote.definition.map_transparent_mode;
 
 import android.app.Instrumentation;
 import android.app.Service;
@@ -109,6 +118,9 @@ public class TouchService extends Service {
     ArrayList<HashMap<Integer, definition.KeyMotions>> sub_battle_ground = new ArrayList<>();
     ArrayList<HashMap<Integer, Integer>> list_keyboard_sync_req_id = new ArrayList<>();
     HashMap<HashMap<Integer, definition.KeyMotions>, ArrayList<HashMap<Integer, definition.KeyMotions>>> hash_main_sub = new HashMap<>();
+
+    boolean map_mode_on;
+    boolean transparent_mode_on;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -241,18 +253,25 @@ public class TouchService extends Service {
         int param2 = data.get(V_PARAM2);
 
 
-        if (EventType.TYPE_MOUSE == type) {
+        if (EventType.TYPE_MOUSE_AXIS == type) {
             synchronized (sync_key_release) {
                 if (!mouse_pressed) {
-                    mouse_pressed = true;
-                    mouse_slot = actionDownAsync(point_touch_start);
-                    point_mouse_start.x = param1;
-                    point_mouse_start.y = param2;
+                    if (!map_mode_on && !transparent_mode_on) {
+                        mouse_pressed = true;
+                        mouse_slot = actionDownAsync(point_touch_start);
+                        point_mouse_start.x = param1;
+                        point_mouse_start.y = param2;
+                    }
                 } else {
 
                     if (param1 != point_mouse_old.x || param2 != point_mouse_old.y) {
-                        point_touch_end.x = point_touch_start.x + (param1 - point_mouse_start.x) * 1280 / 1366;
-                        point_touch_end.y = point_touch_start.y + (param2 - point_mouse_start.y) * 720 / 768;
+                        if (!map_mode_on && !transparent_mode_on) {
+                            point_touch_end.x = point_touch_start.x + param1 - point_mouse_start.x;
+                            point_touch_end.y = point_touch_start.y + param2 - point_mouse_start.y;
+                        } else {
+                            point_touch_end.x = param1;
+                            point_touch_end.y = param2;
+                        }
                         actionMoveAsync(point_touch_end, mouse_slot);
                         point_mouse_old.x = param1;
                         point_mouse_old.y = param2;
@@ -312,32 +331,12 @@ public class TouchService extends Service {
                     }
                 }
 
-            } else {
-                /*  for keyboard keys except move direction and sprint  */
-                definition.KeyMotions motions = key_maps.get(main_mode).get(param1);
-                if (sub_mode != NONE_SUB_MODE) {
-                    /* get sub mode list of this main mode */
-                    ArrayList<HashMap<Integer, definition.KeyMotions>> list = hash_main_sub.get(key_maps.get(main_mode));
-                    if (list != null) {
-                        /* get sub map */
-                        HashMap<Integer, definition.KeyMotions> sub = list.get(sub_mode);
-                        /* if sub contains this key, use sub map instead */
-                        if (sub.containsKey(param1)) {
-                            motions = sub.get(param1);
-                        }
-                    }
-                }
-
+            } else { /*  for keyboard keys except direction/sprint  */
+                definition.KeyMotions motions = selectKeyMotions(param1);
                 if (motions != null) {
                     if (motions.type == MOTION_TAP) {
                         if (param2 == KeyEvent.KEY_DOWN) {
                             tap(motions.moves[0][0], motions.moves[0][1]);
-
-                            /* EXIT SUB MODE IF <F> IS PRESSED DOWN */
-                            if (sub_mode != NONE_SUB_MODE && param1 == VK_F) {
-                                sub_mode = NONE_SUB_MODE;
-                                Log.d(TAG, "EXIT SUB MODE");
-                            }
                         }
                     } else if (motions.type == MOTION_SYNC) {
                         Point p = new Point(motions.moves[0][0], motions.moves[0][1]);
@@ -367,21 +366,9 @@ public class TouchService extends Service {
                     }
                 }
             }
-        } else if (EventType.TYPE_BUTTON == type) {
-            /*  for mouse buttons  */
-            definition.KeyMotions motions = key_maps.get(main_mode).get(param1);
-            if (sub_mode != NONE_SUB_MODE) {
-                /* get sub mode list of this main mode */
-                ArrayList<HashMap<Integer, definition.KeyMotions>> list = hash_main_sub.get(key_maps.get(main_mode));
-                if (list != null) {
-                    /* get sub map */
-                    HashMap<Integer, definition.KeyMotions> sub = list.get(sub_mode);
-                    /* if sub contains this key, use sub map instead */
-                    if (sub.containsKey(param1)) {
-                        motions = sub.get(param1);
-                    }
-                }
-            }
+        } else if (EventType.TYPE_MOUSE_BUTTON == type) {/*  for mouse buttons  */
+            definition.KeyMotions motions = selectKeyMotions(param1);
+            Log.d(TAG, "key " + param1 + " motion " + motions.type);
             if (motions != null) {
                 if (motions.type == MOTION_TAP) {
                     if (param2 == KeyEvent.KEY_DOWN)
@@ -393,6 +380,18 @@ public class TouchService extends Service {
                     } else if (param2 == KeyEvent.KEY_UP) {
                         actionUpAsync(p, mouse_button_req_id[param1]);
                     }
+                } else if (motions.type == MOTION_TRANS) {
+                    if (param2 == KeyEvent.KEY_DOWN) {
+                        if (!mouse_pressed) {
+                            mouse_pressed = true;
+                            mouse_button_req_id[param1] = actionDownAsync(point_touch_end);
+                        }
+                    } else if (param2 == KeyEvent.KEY_UP) {
+                        if (mouse_pressed) {
+                            mouse_pressed = false;
+                            actionUpAsync(point_touch_end, mouse_button_req_id[param1]);
+                        }
+                    }
                 } else {
                     synchronized (sync_key_slow_motions) {
                         if (param2 == KeyEvent.KEY_DOWN) {
@@ -402,22 +401,8 @@ public class TouchService extends Service {
                     }
                 }
             }
-        } else if (EventType.TYPE_WHEEL == type) {
-
-            definition.KeyMotions motions = key_maps.get(main_mode).get(param1);
-            if (sub_mode != NONE_SUB_MODE) {
-                /* get sub mode list of this main mode */
-                ArrayList<HashMap<Integer, definition.KeyMotions>> list = hash_main_sub.get(key_maps.get(main_mode));
-                if (list != null) {
-                    /* get sub map */
-                    HashMap<Integer, definition.KeyMotions> sub = list.get(sub_mode);
-                    /* if sub contains this key, use sub map instead */
-                    if (sub.containsKey(param1)) {
-                        motions = sub.get(param1);
-                    }
-                }
-            }
-
+        } else if (EventType.TYPE_MOUSE_WHEEL == type) {/*  for mouse wheel  */
+            definition.KeyMotions motions = selectKeyMotions(param1);
             if (motions != null) {
                 if (motions.type == MOTION_TAP) {
                     tap(motions.moves[0][0], motions.moves[0][1]);
@@ -437,10 +422,65 @@ public class TouchService extends Service {
             } else if (param1 == SUB_MODE) {
                 Log.d(TAG, "switch to drive " + param2);
                 sub_mode = param2;
+            } else if (param1 == MAP_MODE) {
+                Log.d(TAG, "map mode " + param2);
+                if (MAP_MODE_ON == param2) {
+                    map_mode_on = true;
+                } else if (MAP_MODE_OFF == param2) {
+                    map_mode_on = false;
+                }
+                synchronized (sync_key_release) {
+                    if (mouse_pressed) {
+                        mouse_pressed = false;
+                        actionUpAsync(point_touch_end, mouse_slot);
+                    }
+                }
+            } else if (param1 == TRANSPARENT_MODE) {
+                Log.d(TAG, "trans point mode " + param2);
+                if (TRANSPARENT_ON == param2) {
+                    transparent_mode_on = true;
+                } else if (TRANSPARENT_OFF == param2) {
+                    transparent_mode_on = false;
+                }
+                synchronized (sync_key_release) {
+                    if (mouse_pressed) {
+                        mouse_pressed = false;
+                        actionUpAsync(point_touch_end, mouse_slot);
+                    }
+                }
             }
         }
     }
 
+    definition.KeyMotions selectKeyMotions(int k) {
+        definition.KeyMotions motions = key_maps.get(main_mode).get(k);
+        if (sub_mode != NONE_SUB_MODE) {
+            /* get sub mode list of this main mode */
+            ArrayList<HashMap<Integer, definition.KeyMotions>> list = hash_main_sub.get(key_maps.get(main_mode));
+            if (list != null) {
+                /* get sub map */
+                HashMap<Integer, definition.KeyMotions> sub = list.get(sub_mode - SUB_MODE_OFFSET);
+                /* if sub contains this key, use sub map instead */
+                if (sub.containsKey(k)) {
+                    motions = sub.get(k);
+                }
+            }
+        }
+        /* if transparent mode on use it instead */
+        if (transparent_mode_on) {
+            if (map_transparent_mode.containsKey(k))
+                motions = map_transparent_mode.get(k);
+        }
+
+        /* if map opened use map instead */
+        if (map_mode_on) {
+            if (map_map_mode.containsKey(k)) {
+                motions = map_map_mode.get(k);
+            }
+        }
+
+        return motions;
+    }
 
     Point step(float n, Point p, Point start, Point end, int req_id) {
         Point t = new Point();
@@ -557,10 +597,12 @@ public class TouchService extends Service {
 
     Thread threadReleaseTouch = new Thread(() -> {
         while (true) {
-            synchronized (sync_key_release) {
-                if (mouse_pressed && SystemClock.uptimeMillis() > mouse_timeout) {
-                    mouse_pressed = false;
-                    actionUpAsync(point_touch_end, mouse_slot);
+            if (!transparent_mode_on && !map_mode_on) {
+                synchronized (sync_key_release) {
+                    if (mouse_pressed && SystemClock.uptimeMillis() > mouse_timeout) {
+                        mouse_pressed = false;
+                        actionUpAsync(point_touch_end, mouse_slot);
+                    }
                 }
             }
             SystemClock.sleep(100);
