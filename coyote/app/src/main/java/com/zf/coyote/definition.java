@@ -123,15 +123,15 @@ public class definition {
     public static int VK_F9 = 67;
     public static int VK_F10 = 68;
 
-    public static int MOUSE_CODE = 260;
-    public static int BT_LEFT = MOUSE_CODE + MouseButton.LEFT;
-    public static int BT_RIGHT = MOUSE_CODE + MouseButton.RIGHT;
-    public static int BT_MIDDLE = MOUSE_CODE + MouseButton.MIDDLE;
-    public static int BT_BACK = MOUSE_CODE + MouseButton.BACK;
-    public static int BT_FORWARD = MOUSE_CODE + MouseButton.FORWARD;
-    public static int WHEEL_CODE = 280;
-    public static int WL_BACK = WHEEL_CODE + WheelEvent.ROLL_BACK;
-    public static int WL_FORWARD = WHEEL_CODE + WheelEvent.ROLL_FORWARD;
+    public static int MOUSE_BUTTON_OFFSET = 260;
+    public static int BT_LEFT = MOUSE_BUTTON_OFFSET + MouseButton.LEFT;
+    public static int BT_RIGHT = MOUSE_BUTTON_OFFSET + MouseButton.RIGHT;
+    public static int BT_MIDDLE = MOUSE_BUTTON_OFFSET + MouseButton.MIDDLE;
+    public static int BT_BACK = MOUSE_BUTTON_OFFSET + MouseButton.BACK;
+    public static int BT_FORWARD = MOUSE_BUTTON_OFFSET + MouseButton.FORWARD;
+    public static int MOUSE_WHEEL_OFFSET = 280;
+    public static int WL_BACK = MOUSE_WHEEL_OFFSET + WheelEvent.ROLL_BACK;
+    public static int WL_FORWARD = MOUSE_WHEEL_OFFSET + WheelEvent.ROLL_FORWARD;
 
     public static int MV_CENTER = 290;
     public static int VIEW_START = 300;
