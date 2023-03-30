@@ -226,7 +226,7 @@ public class definition {
         put(VK_T, new KeyMotions("", MOTION_TAP, new int[][]{{450, 620}}));
         put(VK_TAB, new KeyMotions("", MOTION_TAP, new int[][]{{375, 617}}));
         put(VK_E, new KeyMotions("", MOTION_TAP, new int[][]{{1220, 260}}));
-        put(VK_F, new KeyMotions("", MOTION_TAP, new int[][]{{792, 356}}));//502 347  //534 475f //876 402 DRIVE //door 690 400
+        put(VK_F, new KeyMotions("", MOTION_TAP, new int[][]{{876, 402}}));//792, 356pick up thing//502 347 red box //534 475 print car //876 402 DRIVE //door 690 400
         put(VK_G, new KeyMotions("", MOTION_TAP, new int[][]{{792, 413}}));//745 347 //879 516 sit CAR
         put(VK_H, new KeyMotions("", MOTION_TAP, new int[][]{{792, 490}}));//502 431
         put(VK_Q, new KeyMotions("", MOTION_TAP, new int[][]{{974, 438}}));//surf
@@ -281,6 +281,7 @@ public class definition {
     }};
 
     public static HashMap<Integer, KeyMotions> map_moto = new HashMap<>() {{
+        put(BT_BACK, new KeyMotions("speed up", MOTION_SYNC, new int[][]{{1072, 554}}));
         put(VK_Q, new KeyMotions("head up", MOTION_SYNC, new int[][]{{949, 409}}));
         put(VK_E, new KeyMotions("head down", MOTION_SYNC, new int[][]{{949, 540}}));
         put(VK_SPACE, new KeyMotions("stop", MOTION_SYNC, new int[][]{{1071, 405}}));
@@ -293,13 +294,14 @@ public class definition {
         put(BT_LEFT, new KeyMotions("up", MOTION_SYNC, new int[][]{{1133, 391}}));
         put(BT_RIGHT, new KeyMotions("down", MOTION_SYNC, new int[][]{{1134, 567}}));
         put(VK_E, new KeyMotions("hot", MOTION_TAP, new int[][]{{989, 439}}));
-        put(VK_F, new KeyMotions("off", MOTION_TAP, new int[][]{{1207, 270}}));
+        put(VK_F, new KeyMotions("off", MOTION_TAP, new int[][]{{1220, 260}}));
     }};
 
 
     public static HashMap<Integer, KeyMotions> map_coyote = new HashMap<>() {{
         put(BT_LEFT, new KeyMotions("fire", MOTION_SYNC, new int[][]{{936, 491}}));
         put(BT_RIGHT, new KeyMotions("missile", MOTION_TAP, new int[][]{{954, 611}}));
+        put(BT_BACK, new KeyMotions("speed up", MOTION_SYNC, new int[][]{{1072, 554}}));
         put(VK_SPACE, new KeyMotions("stop", MOTION_SYNC, new int[][]{{1026, 415}}));
         put(VK_E, new KeyMotions("hot", MOTION_TAP, new int[][]{{1162, 415}}));
         put(VK_F, new KeyMotions("off", MOTION_TAP, new int[][]{{1207, 270}}));

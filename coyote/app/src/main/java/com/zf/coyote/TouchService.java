@@ -256,34 +256,33 @@ public class TouchService extends Service {
 
         if (EventType.TYPE_MOUSE_AXIS == type) {
             synchronized (sync_key_release) {
-                if (!mouse_pressed) {
-                    if (!map_mode_on && !transparent_mode_on) {
+
+                if (map_mode_on || transparent_mode_on) {
+                    point_touch_end.x = param1;
+                    point_touch_end.y = param2;
+                    if (mouse_pressed)
+                        actionMoveAsync(point_touch_end, mouse_slot);
+                } else {
+                    if (!mouse_pressed) {
                         mouse_pressed = true;
                         mouse_slot = actionDownAsync(point_touch_start);
                         point_mouse_start.x = param1;
                         point_mouse_start.y = param2;
-                    }
-                } else {
-
-                    if (param1 != point_mouse_old.x || param2 != point_mouse_old.y) {
-                        if (!map_mode_on && !transparent_mode_on) {
+                    } else {
+                        if (param1 != point_mouse_old.x || param2 != point_mouse_old.y) {
                             point_touch_end.x = point_touch_start.x + param1 - point_mouse_start.x;
                             point_touch_end.y = point_touch_start.y + param2 - point_mouse_start.y;
-                        } else {
-                            point_touch_end.x = param1;
-                            point_touch_end.y = param2;
+                            actionMoveAsync(point_touch_end, mouse_slot);
+                            point_mouse_old.x = param1;
+                            point_mouse_old.y = param2;
                         }
-                        actionMoveAsync(point_touch_end, mouse_slot);
-                        point_mouse_old.x = param1;
-                        point_mouse_old.y = param2;
                     }
+                    mouse_timeout = SystemClock.uptimeMillis() + 100;
                 }
-
-                mouse_timeout = SystemClock.uptimeMillis() + 100;
             }
         } else if (EventType.TYPE_KEYBOARD == type) {
 
-            Log.d(TAG, " id=" + id + " type=" + type + " param1=" + param1 + " param2=" + param2);
+            //Log.d(TAG, " id=" + id + " type=" + type + " param1=" + param1 + " param2=" + param2);
             if (isMoveKey(param1)) {
                 synchronized (sync_key_move) {
                     byte b = presetMoveKeyStatus(moveKeyStatus, param1, param2);
@@ -367,7 +366,7 @@ public class TouchService extends Service {
             definition.KeyMotions motions = selectKeyMotions(param1 + MOUSE_BUTTON_OFFSET);
             if (motions == null) Log.d(TAG, "key " + param1 + " motion none");
             if (motions != null) {
-                //Log.d(TAG, "key " + param1 + " motion " + motions.type);
+                Log.d(TAG, "key " + param1 + " motion " + motions.description);
                 if (motions.type == MOTION_TAP) {
                     if (param2 == KeyEvent.KEY_DOWN) tap(motions.moves[0][0], motions.moves[0][1]);
                 } else if (motions.type == MOTION_SYNC) {
@@ -559,7 +558,7 @@ public class TouchService extends Service {
     });
 
     Thread threadSendPoint = new Thread(() -> {
-
+        TouchData data;
         while (true) {
             synchronized (sync_key_touch) {
                 while (data_list_touch.isEmpty()) {
@@ -568,26 +567,28 @@ public class TouchService extends Service {
                     } catch (InterruptedException e) {
                         Log.e(TAG, "wait touch data interrupt exception" + e);
                     }
+
                 }
+
+
+                data = data_list_touch.remove(0);
             }
-
-            TouchData data = data_list_touch.remove(0);
-
-            if (ACT_DOWN == data.action) {
-                int slot = actionDown(data.p);
-                if (slot >= 0 && slot < MAX_SLOT) map_id_slot.put(data.id, slot);
-            } else if (ACT_UP == data.action) {
-                Integer slot = map_id_slot.get(data.id);
-                if (slot != null) {
-                    actionUp(data.p, slot);
-                    map_id_slot.remove(data.id, slot);
+            if (data != null) {
+                if (ACT_DOWN == data.action) {
+                    int slot = actionDown(data.p);
+                    if (slot >= 0 && slot < MAX_SLOT) map_id_slot.put(data.id, slot);
+                } else if (ACT_UP == data.action) {
+                    Integer slot = map_id_slot.get(data.id);
+                    if (slot != null) {
+                        actionUp(data.p, slot);
+                        map_id_slot.remove(data.id, slot);
+                    }
+                } else if (ACT_MOVE == data.action) {
+                    Integer slot = map_id_slot.get(data.id);
+                    if (slot != null) actionMove(data.p, slot);
                 }
-            } else if (ACT_MOVE == data.action) {
-                Integer slot = map_id_slot.get(data.id);
-                if (slot != null) actionMove(data.p, slot);
             }
         }
-
     });
 
     Thread threadReleaseTouch = new Thread(() -> {

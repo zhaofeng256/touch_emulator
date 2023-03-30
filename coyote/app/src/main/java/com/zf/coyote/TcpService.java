@@ -16,7 +16,7 @@ import java.util.Arrays;
 
 public class TcpService extends Service {
 
-    public static final String TAG = TcpClient.class.getSimpleName();
+    public static final String TAG = TcpService.class.getSimpleName();
     public static ArrayList<byte[]> data_list_tcp = new ArrayList<>();
 
     public static final Object sync_key_tcp = new Object();
