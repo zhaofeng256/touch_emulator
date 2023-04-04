@@ -22,6 +22,7 @@ public class definition {
         public static int TYPE_MOUSE_BUTTON = 2;
         public static int TYPE_MOUSE_WHEEL = 3;
         public static int TYPE_CONTROL = 4;
+        public static int TYPE_ALT_LOCATION = 5;
 
     }
 
@@ -68,6 +69,17 @@ public class definition {
         public static int DRIVE_MOTO = 1;
         public static int DRIVE_CHOPPER = 2;
         public static int DRIVE_COYOTE = 3;
+    }
+    public static class LocationType {
+        public static int SUPPLY_LIST = 0;
+        public static int ALTER_PANEL = 1;
+    }
+
+    public static class SupplyType {
+        public static int SUPPLY_NONE = 0;
+        public static int SUPPLY_RANDOM = 1;
+        public static int SUPPLY_SYSTEM = 2;
+        public static int SUPPLY_CUSTOM = 3;
     }
 
     public static int VK_ESC = 1;
@@ -226,9 +238,9 @@ public class definition {
         put(VK_T, new KeyMotions("", MOTION_TAP, new int[][]{{450, 620}}));
         put(VK_TAB, new KeyMotions("", MOTION_TAP, new int[][]{{375, 617}}));
         put(VK_E, new KeyMotions("", MOTION_TAP, new int[][]{{1220, 260}}));
-        put(VK_F, new KeyMotions("", MOTION_TAP, new int[][]{{876, 402}}));//792, 356pick up thing//502 347 red box //534 475 print car //876 402 DRIVE //door 690 400
-        put(VK_G, new KeyMotions("", MOTION_TAP, new int[][]{{792, 413}}));//745 347 //879 516 sit CAR
-        put(VK_H, new KeyMotions("", MOTION_TAP, new int[][]{{792, 490}}));//502 431
+//        put(VK_F, new KeyMotions("", MOTION_TAP, new int[][]{{975, 232}}));//792, 356pick up thing//502 347 red box //534 475 print car //876 402 DRIVE //door 690 400
+//        put(VK_G, new KeyMotions("", MOTION_TAP, new int[][]{{792, 413}}));//745 347 red box//879 516 sit CAR
+//        put(VK_H, new KeyMotions("", MOTION_TAP, new int[][]{{792, 490}}));//502 431 red box
         put(VK_Q, new KeyMotions("", MOTION_TAP, new int[][]{{974, 438}}));//surf
         put(VK_C, new KeyMotions("", MOTION_TAP, new int[][]{{1239, 51}}));
         put(VK_T, new KeyMotions("", MOTION_TAP, new int[][]{{981, 95}}));

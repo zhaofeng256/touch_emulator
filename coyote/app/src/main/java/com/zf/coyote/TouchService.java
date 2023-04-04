@@ -121,7 +121,7 @@ public class TouchService extends Service {
     ArrayList<HashMap<Integer, definition.KeyMotions>> sub_battle_ground = new ArrayList<>();
     ArrayList<HashMap<Integer, Integer>> list_keyboard_sync_req_id = new ArrayList<>();
     HashMap<HashMap<Integer, definition.KeyMotions>, ArrayList<HashMap<Integer, definition.KeyMotions>>> hash_main_sub = new HashMap<>();
-
+    HashMap<Integer, definition.KeyMotions> hash_alter_keys_pos = new HashMap<>();
     boolean map_mode_on;
     boolean transparent_mode_on;
 
@@ -415,12 +415,12 @@ public class TouchService extends Service {
             }
         } else if (EventType.TYPE_CONTROL == type) {
             if (param1 == MAIN_MODE) {
-                Log.d(TAG, "switch to mode " + param2);
+                Log.d(TAG, "main mode switch to " + param2);
                 main_mode = param2;
                 sub_mode = NONE_SUB_MODE;
                 initPointers(param2);
             } else if (param1 == SUB_MODE) {
-                Log.d(TAG, "switch to drive " + param2);
+                Log.d(TAG, "sub mode switch to " + param2);
                 sub_mode = param2;
             } else if (param1 == MAP_MODE) {
                 Log.d(TAG, "map mode " + param2);
@@ -449,11 +449,30 @@ public class TouchService extends Service {
                     }
                 }
             }
+        } else if (EventType.TYPE_ALT_LOCATION == type) {
+            int location_type = param1 & 0xFFFF;
+            int key_code = param1 >> 16;
+            int x = param2 & 0xFFFF;
+            int y = param2 >> 16;
+            Log.d(TAG, "key " + key_code + " x " + x + " y " + y);
+            if (x == 0 &&  y == 0)
+                hash_alter_keys_pos.remove(key_code);
+            else
+                hash_alter_keys_pos.put(key_code, new definition.KeyMotions("", MOTION_SYNC, new int[][]{{x, y}}));
+//            if (SUPPLY_LIST == location_type) {
+//            } else if(ALTER_PANEL == location_type) {
+//            }
+
         }
     }
 
     definition.KeyMotions selectKeyMotions(int k) {
         definition.KeyMotions motions = key_maps.get(main_mode).get(k);
+
+        /* search alter key list */
+        if (hash_alter_keys_pos.containsKey(k))
+            motions = hash_alter_keys_pos.get(k);
+
         if (sub_mode != NONE_SUB_MODE) {
             /* get sub mode list of this main mode */
             ArrayList<HashMap<Integer, definition.KeyMotions>> list = hash_main_sub.get(key_maps.get(main_mode));
