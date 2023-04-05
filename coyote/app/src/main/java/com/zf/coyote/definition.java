@@ -238,9 +238,7 @@ public class definition {
         put(VK_T, new KeyMotions("", MOTION_TAP, new int[][]{{450, 620}}));
         put(VK_TAB, new KeyMotions("", MOTION_TAP, new int[][]{{375, 617}}));
         put(VK_E, new KeyMotions("", MOTION_TAP, new int[][]{{1220, 260}}));
-//        put(VK_F, new KeyMotions("", MOTION_TAP, new int[][]{{975, 232}}));//792, 356pick up thing//502 347 red box //534 475 print car //876 402 DRIVE //door 690 400
-//        put(VK_G, new KeyMotions("", MOTION_TAP, new int[][]{{792, 413}}));//745 347 red box//879 516 sit CAR
-//        put(VK_H, new KeyMotions("", MOTION_TAP, new int[][]{{792, 490}}));//502 431 red box
+        put(VK_F, new KeyMotions("", MOTION_TAP, new int[][]{{913, 218}}));//auto pick
         put(VK_Q, new KeyMotions("", MOTION_TAP, new int[][]{{974, 438}}));//surf
         put(VK_C, new KeyMotions("", MOTION_TAP, new int[][]{{1239, 51}}));
         put(VK_T, new KeyMotions("", MOTION_TAP, new int[][]{{981, 95}}));
@@ -248,7 +246,7 @@ public class definition {
         put(VK_Y, new KeyMotions("", MOTION_TAP, new int[][]{{981, 148}}));
         put(VK_EQUAL, new KeyMotions("", MOTION_TAP, new int[][]{{986, 222}}));
         put(VK_ESC, new KeyMotions("", MOTION_TAP, new int[][]{{981, 38}}));
-        put(VK_F2, new KeyMotions("", MOTION_TAP, new int[][]{{1047, 227}}));
+        put(VK_F5, new KeyMotions("", MOTION_TAP, new int[][]{{1047, 227}}));
         put(VK_F4, new KeyMotions("", MOTION_TAP, new int[][]{{921, 41}}));
         put(BT_LEFT, new KeyMotions("", MOTION_SYNC, new int[][]{{1090, 534}}));
         put(BT_RIGHT, new KeyMotions("", MOTION_SYNC, new int[][]{{1216, 366}}));
