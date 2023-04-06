@@ -133,6 +133,14 @@ public class TcpService extends Service {
         }
         return sb.toString();
     }
+
+    public void sendTcpData(int type, int param1, int param2) {
+        TcpData data = new TcpData();
+        byte [] buf = new byte[data.size];
+        byte[] temp = buf;
+        temp[0] = (byte)(type & 0xFF);
+
+    }
 }
 
 

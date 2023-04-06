@@ -23,6 +23,7 @@ public class definition {
         public static int TYPE_MOUSE_WHEEL = 3;
         public static int TYPE_CONTROL = 4;
         public static int TYPE_ALT_LOCATION = 5;
+        public static int TYPE_SETTING = 6;
 
     }
 
@@ -82,6 +83,11 @@ public class definition {
         public static int SUPPLY_CUSTOM = 3;
     }
 
+    public static class SettingType {
+        public static int WINDOW_POS = 0;
+        public static int WINDOW_SIZE = 1;
+    }
+
     public static int VK_ESC = 1;
     public static int VK_1 = 2;
     public static int VK_2 = 3;
@@ -103,6 +109,10 @@ public class definition {
     public static int VK_R = 19;
     public static int VK_T = 20;
     public static int VK_Y = 21;
+    public static int VK_U = 22;
+    public static int VK_I = 23;
+    public static int VK_O = 24;
+    public static int VK_P = 25;
     public static int VK_A = 30;
     public static int VK_S = 31;
     public static int VK_D = 32;
@@ -244,6 +254,10 @@ public class definition {
         put(VK_T, new KeyMotions("", MOTION_TAP, new int[][]{{981, 95}}));
         put(VK_X, new KeyMotions("", MOTION_TAP, new int[][]{{1110, 228}}));
         put(VK_Y, new KeyMotions("", MOTION_TAP, new int[][]{{981, 148}}));
+        put(VK_U, new KeyMotions("", MOTION_DRAG, new int[][]{{1110 , 238}}));
+        put(VK_I, new KeyMotions("", MOTION_DRAG, new int[][]{{1120 , 228}}));
+        put(VK_O, new KeyMotions("", MOTION_DRAG, new int[][]{{1110 , 218}}));
+        put(VK_P, new KeyMotions("", MOTION_DRAG, new int[][]{{1100 , 228}}));
         put(VK_EQUAL, new KeyMotions("", MOTION_TAP, new int[][]{{986, 222}}));
         put(VK_ESC, new KeyMotions("", MOTION_TAP, new int[][]{{981, 38}}));
         put(VK_F5, new KeyMotions("", MOTION_TAP, new int[][]{{1047, 227}}));
@@ -254,7 +268,10 @@ public class definition {
         put(WL_BACK, new KeyMotions("", MOTION_TAP, new int[][]{{696, 622}}));
         put(WL_FORWARD, new KeyMotions("", MOTION_TAP, new int[][]{{545, 622}}));
         put(MV_CENTER, new KeyMotions("", MOTION_NONE, new int[][]{{259, 528}}));
-        put(VIEW_START, new KeyMotions("", MOTION_NONE, new int[][]{{743, 409}}));
+        put(VIEW_START, new KeyMotions("", MOTION_NONE, new int[][]{{700,200}}));//743, 409
+        put(VK_M, new KeyMotions("free view", MOTION_TRANS, new int[][]{{915,270}}));
+
+
     }};
 
     public static HashMap<Integer, KeyMotions> map_pve = new HashMap<>() {{

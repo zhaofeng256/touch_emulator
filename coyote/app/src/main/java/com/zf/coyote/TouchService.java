@@ -29,6 +29,8 @@ import static com.zf.coyote.definition.MotionType.MOTION_SYNC;
 import static com.zf.coyote.definition.MotionType.MOTION_TAP;
 import static com.zf.coyote.definition.MotionType.MOTION_TRANS;
 import static com.zf.coyote.definition.MouseButton.MAX_MOUSE_BUTTONS;
+import static com.zf.coyote.definition.SettingType.WINDOW_POS;
+import static com.zf.coyote.definition.SettingType.WINDOW_SIZE;
 import static com.zf.coyote.definition.SubModeType.NONE_SUB_MODE;
 import static com.zf.coyote.definition.SubModeType.SUB_MODE_OFFSET;
 import static com.zf.coyote.definition.TransPointStatus.TRANSPARENT_OFF;
@@ -50,6 +52,7 @@ import static com.zf.coyote.definition.map_transparent_mode;
 import android.app.Instrumentation;
 import android.app.Service;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.util.Log;
@@ -81,7 +84,8 @@ public class TouchService extends Service {
     Point point_sprint_w, point_sprint_aw, point_sprint_dw;
     Point pointMoveStart, pointMoveEnd, pointMoveNow;
     Point point_touch_start;
-    Point point_touch_end = new Point(), point_mouse_start = new Point(), point_mouse_old = new Point();
+    Point point_key_drag_start = new Point(0, 0);
+    Point point_touch_end = new Point(), point_mouse_start = new Point(), point_mouse_end = new Point();
     long mouse_timeout;
     boolean mouse_pressed = false;
     byte moveKeyStatus;
@@ -124,6 +128,11 @@ public class TouchService extends Service {
     HashMap<Integer, definition.KeyMotions> hash_alter_keys_pos = new HashMap<>();
     boolean map_mode_on;
     boolean transparent_mode_on;
+    boolean key_drag_mode_on;
+
+    int[] display_size = {0, 0};
+    int[] window_pos = {0, 0};
+    int[] window_size = {0, 0};
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -234,6 +243,17 @@ public class TouchService extends Service {
 
 
         initPointers(main_mode);
+
+        display_size[0] = Resources.getSystem().getDisplayMetrics().widthPixels;
+        display_size[1] = Resources.getSystem().getDisplayMetrics().heightPixels;
+        Log.d(TAG, "display width=" + display_size[0] + " height=" + display_size[1]);
+    }
+
+
+    Point get_relative_position(int x, int y) {
+
+        return new Point((float)(display_size[0] * (x - window_pos[0]) / window_size[0]),
+                (float)(display_size[1] * (y - window_pos[1]) / window_size[1]));
     }
 
 
@@ -262,19 +282,28 @@ public class TouchService extends Service {
                     point_touch_end.y = param2;
                     if (mouse_pressed)
                         actionMoveAsync(point_touch_end, mouse_slot);
+                } else if (key_drag_mode_on) {
+                    point_touch_end.x = point_key_drag_start.x + param1 - point_mouse_start.x;
+                    point_touch_end.y = point_key_drag_start.y + param2 - point_mouse_start.y;
+                    if (mouse_pressed)
+                        actionMoveAsync(point_touch_end, mouse_slot);
+                    point_mouse_end.x = param1;
+                    point_mouse_end.y = param2;
                 } else {
                     if (!mouse_pressed) {
                         mouse_pressed = true;
                         mouse_slot = actionDownAsync(point_touch_start);
                         point_mouse_start.x = param1;
                         point_mouse_start.y = param2;
+                        point_mouse_end.x = param1;
+                        point_mouse_end.y = param2;
                     } else {
-                        if (param1 != point_mouse_old.x || param2 != point_mouse_old.y) {
+                        if (param1 != point_mouse_end.x || param2 != point_mouse_end.y) {
                             point_touch_end.x = point_touch_start.x + param1 - point_mouse_start.x;
                             point_touch_end.y = point_touch_start.y + param2 - point_mouse_start.y;
                             actionMoveAsync(point_touch_end, mouse_slot);
-                            point_mouse_old.x = param1;
-                            point_mouse_old.y = param2;
+                            point_mouse_end.x = param1;
+                            point_mouse_end.y = param2;
                         }
                     }
                     mouse_timeout = SystemClock.uptimeMillis() + 100;
@@ -331,11 +360,11 @@ public class TouchService extends Service {
             } else { /*  for keyboard keys except direction/sprint  */
                 definition.KeyMotions motions = selectKeyMotions(param1);
                 if (motions != null) {
-                    if (motions.type == MOTION_TAP) {
+                    if (motions.type == MOTION_TAP) {/* tap */
                         if (param2 == KeyEvent.KEY_DOWN) {
                             tap(motions.moves[0][0], motions.moves[0][1]);
                         }
-                    } else if (motions.type == MOTION_SYNC) {
+                    } else if (motions.type == MOTION_SYNC) {/* sync key */
                         Point p = new Point(motions.moves[0][0], motions.moves[0][1]);
 
                         /* keyboard sync type hash <key, request id> in this main mode */
@@ -351,12 +380,36 @@ public class TouchService extends Service {
                                 }
                             }
                         }
-
-                    } else {
+                    } else if (motions.type == MOTION_DRAG || motions.type == MOTION_COMB) {/* async motions */
                         synchronized (sync_key_slow_motions) {
                             if (param2 == KeyEvent.KEY_DOWN) {
                                 slowMotionsList.add(motions);
                                 sync_key_slow_motions.notify();
+                            }
+                        }
+                    } else if (motions.type == MOTION_TRANS) {/* keyboard key drag mode */
+                        synchronized (sync_key_release) {
+                            if (param2 == KeyEvent.KEY_DOWN) {
+                                key_drag_mode_on = true;
+                                if (mouse_pressed) {
+                                    mouse_pressed = false;
+                                    actionUpAsync(point_touch_end, mouse_slot);
+                                }
+
+                                point_key_drag_start.x = motions.moves[0][0];
+                                point_key_drag_start.y = motions.moves[0][1];
+                                point_mouse_start.x = point_mouse_end.x;
+                                point_mouse_start.y = point_mouse_end.y;
+
+                                mouse_pressed = true;
+                                mouse_slot = actionDownAsync(point_key_drag_start);
+
+                            } else if (param2 == KeyEvent.KEY_UP) {
+                                key_drag_mode_on = false;
+                                if (mouse_pressed) {
+                                    mouse_pressed = false;
+                                    actionUpAsync(point_touch_end, mouse_slot);
+                                }
                             }
                         }
                     }
@@ -455,7 +508,7 @@ public class TouchService extends Service {
             int x = param2 & 0xFFFF;
             int y = param2 >> 16;
             Log.d(TAG, "key " + key_code + " x " + x + " y " + y);
-            if (x == 0 &&  y == 0)
+            if (x == 0 && y == 0)
                 hash_alter_keys_pos.remove(key_code);
             else
                 hash_alter_keys_pos.put(key_code, new definition.KeyMotions("", MOTION_SYNC, new int[][]{{x, y}}));
@@ -463,6 +516,18 @@ public class TouchService extends Service {
 //            } else if(ALTER_PANEL == location_type) {
 //            }
 
+        } else if (EventType.TYPE_SETTING == type) {
+            int x = param2 & 0xFFFF;
+            int y = param2 >> 16;
+            if (param1 == WINDOW_POS) {
+                window_pos[0] = x;
+                window_pos[1] = y;
+                Log.d(TAG, "window position x=" + x + " y=" + y);
+            } else if (param1 == WINDOW_SIZE) {
+                window_size[0] = x;
+                window_size[1] = y;
+                Log.d(TAG, "window size x=" + x + " y=" + y);
+            }
         }
     }
 
@@ -612,7 +677,7 @@ public class TouchService extends Service {
 
     Thread threadReleaseTouch = new Thread(() -> {
         while (true) {
-            if (!transparent_mode_on && !map_mode_on) {
+            if (!transparent_mode_on && !map_mode_on && !key_drag_mode_on) {
                 synchronized (sync_key_release) {
                     if (mouse_pressed && SystemClock.uptimeMillis() > mouse_timeout) {
                         mouse_pressed = false;
