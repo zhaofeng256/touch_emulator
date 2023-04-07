@@ -130,7 +130,7 @@ public class TouchService extends Service {
     boolean transparent_mode_on;
     boolean key_drag_mode_on;
 
-    int[] display_size = {0, 0};
+    public static int[] display_size = {0, 0};
     int[] window_pos = {0, 0};
     int[] window_size = {0, 0};
 
@@ -249,13 +249,13 @@ public class TouchService extends Service {
         Log.d(TAG, "display width=" + display_size[0] + " height=" + display_size[1]);
     }
 
-
-    Point get_relative_position(int x, int y) {
-
-        return new Point((float)(display_size[0] * (x - window_pos[0]) / window_size[0]),
-                (float)(display_size[1] * (y - window_pos[1]) / window_size[1]));
+    float get_relative_x(int x) {
+        return (float)(display_size[0] * (x - window_pos[0]) / window_size[0]);
     }
 
+    float get_relative_y(int y) {
+        return (float)(display_size[1] * (y - window_pos[1]) / window_size[1]);
+    }
 
     void dataHandle(TcpService.TcpData data) {
         if (data == null) {
@@ -278,8 +278,8 @@ public class TouchService extends Service {
             synchronized (sync_key_release) {
 
                 if (map_mode_on || transparent_mode_on) {
-                    point_touch_end.x = param1;
-                    point_touch_end.y = param2;
+                    point_touch_end.x = get_relative_x(param1);
+                    point_touch_end.y = get_relative_y(param2);
                     if (mouse_pressed)
                         actionMoveAsync(point_touch_end, mouse_slot);
                 } else if (key_drag_mode_on) {
@@ -287,27 +287,26 @@ public class TouchService extends Service {
                     point_touch_end.y = point_key_drag_start.y + param2 - point_mouse_start.y;
                     if (mouse_pressed)
                         actionMoveAsync(point_touch_end, mouse_slot);
-                    point_mouse_end.x = param1;
-                    point_mouse_end.y = param2;
                 } else {
                     if (!mouse_pressed) {
                         mouse_pressed = true;
                         mouse_slot = actionDownAsync(point_touch_start);
                         point_mouse_start.x = param1;
                         point_mouse_start.y = param2;
-                        point_mouse_end.x = param1;
-                        point_mouse_end.y = param2;
                     } else {
                         if (param1 != point_mouse_end.x || param2 != point_mouse_end.y) {
                             point_touch_end.x = point_touch_start.x + param1 - point_mouse_start.x;
                             point_touch_end.y = point_touch_start.y + param2 - point_mouse_start.y;
                             actionMoveAsync(point_touch_end, mouse_slot);
-                            point_mouse_end.x = param1;
-                            point_mouse_end.y = param2;
                         }
                     }
-                    mouse_timeout = SystemClock.uptimeMillis() + 100;
+                    if (sub_mode == NONE_SUB_MODE)
+                        mouse_timeout = SystemClock.uptimeMillis() + 100;
+                    else
+                        mouse_timeout = SystemClock.uptimeMillis() + 2000;
                 }
+                point_mouse_end.x = param1;
+                point_mouse_end.y = param2;
             }
         } else if (EventType.TYPE_KEYBOARD == type) {
 

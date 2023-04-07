@@ -1,6 +1,9 @@
 package com.zf.coyote;
 
 import static com.zf.coyote.TcpService.charToHex;
+import static com.zf.coyote.TcpService.sendTcpData;
+import static com.zf.coyote.TouchService.display_size;
+import static com.zf.coyote.definition.EventType.TYPE_SETTING;
 
 import android.util.Log;
 
@@ -23,7 +26,7 @@ public class TcpClient {
     private final OnReceived received;
     private boolean running = false;
     InputStream input_stream;
-    OutputStream output_stream;
+    static OutputStream output_stream;
     static byte[] read_buf = new byte[1024];
     int read_len = 0;
 
@@ -45,6 +48,8 @@ public class TcpClient {
             input_stream = socket.getInputStream();
             output_stream = socket.getOutputStream();
 
+            sendTcpData(TYPE_SETTING, display_size[0], display_size[1]);
+
             while (running) {
                 read_len = input_stream.read(read_buf);
                 //Log.d(TAG, "rec len=" + read_len + " " + charToHex(read_buf, read_len));
@@ -53,6 +58,7 @@ public class TcpClient {
                 }
                 if (-1 == read_len) {
                     Log.d(TAG, "server lost connect");
+                    break;
                 }
             }
         } catch (SocketTimeoutException e) {
@@ -70,7 +76,7 @@ public class TcpClient {
         }
     }
 
-    public void send(byte[] buf, int len) {
+    public static void send(byte[] buf, int len) {
         if (output_stream != null) {
             //Log.d(TAG, "Sending...");
             try {

@@ -11,6 +11,7 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -134,12 +135,19 @@ public class TcpService extends Service {
         return sb.toString();
     }
 
-    public void sendTcpData(int type, int param1, int param2) {
+    public static void int_to_buf(int i, byte[] buf, int offset) {
+        byte[] bytes = ByteBuffer.allocate(4).putInt(i).array();
+        System.arraycopy(bytes, 0, buf, offset, 4);
+    }
+
+    public static void sendTcpData(int type, int param1, int param2) {
         TcpData data = new TcpData();
         byte [] buf = new byte[data.size];
-        byte[] temp = buf;
-        temp[0] = (byte)(type & 0xFF);
-
+        int_to_buf(0, buf, data.offset("id"));
+        buf[data.offset("type")] = (byte)(type & 0xFF);
+        int_to_buf(param1, buf, data.offset("param1"));
+        int_to_buf(param2, buf, data.offset("param2"));
+        TcpClient.send(buf, data.size);
     }
 }
 

@@ -234,17 +234,17 @@ public class definition {
         put(VK_SPACE, new KeyMotions("", MOTION_TAP, new int[][]{{1230, 507}}));
         put(VK_CAPS, new KeyMotions("", MOTION_TAP, new int[][]{{1205, 644}}));
         put(VK_R, new KeyMotions("", MOTION_TAP, new int[][]{{700, 670}}));
-        put(VK_1, new KeyMotions("", MOTION_TAP, new int[][]{{557, 620}}));
-        put(VK_2, new KeyMotions("", MOTION_TAP, new int[][]{{791, 620}}));
-        put(VK_3, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 817, 618}}));
-        put(VK_4, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 825, 618}}));
-        put(VK_5, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 831, 625}}));
-        put(VK_6, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 829, 633}}));
-        put(VK_7, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 813, 633}}));
-        put(VK_8, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 811, 625}}));
-        put(VK_9, new KeyMotions("", MOTION_DRAG, new int[][]{{451, 624, 441, 624}}));
-        put(VK_0, new KeyMotions("", MOTION_DRAG, new int[][]{{451, 624, 451, 614}}));
-        put(VK_MINUS, new KeyMotions("", MOTION_DRAG, new int[][]{{451, 624, 461, 624}}));
+        put(VK_1, new KeyMotions("", MOTION_TAP, new int[][]{{560, 620}}));
+        put(VK_2, new KeyMotions("", MOTION_TAP, new int[][]{{710, 620}}));
+//        put(VK_3, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 817, 618}}));
+//        put(VK_4, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 825, 618}}));
+//        put(VK_5, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 831, 625}}));
+//        put(VK_6, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 829, 633}}));
+//        put(VK_7, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 813, 633}}));
+//        put(VK_8, new KeyMotions("", MOTION_DRAG, new int[][]{{821, 627, 811, 625}}));
+//        put(VK_9, new KeyMotions("", MOTION_DRAG, new int[][]{{451, 624, 441, 624}}));
+//        put(VK_0, new KeyMotions("", MOTION_DRAG, new int[][]{{451, 624, 451, 614}}));
+//        put(VK_MINUS, new KeyMotions("", MOTION_DRAG, new int[][]{{451, 624, 461, 624}}));
         put(VK_T, new KeyMotions("", MOTION_TAP, new int[][]{{450, 620}}));
         put(VK_TAB, new KeyMotions("", MOTION_TAP, new int[][]{{375, 617}}));
         put(VK_E, new KeyMotions("", MOTION_TAP, new int[][]{{1220, 260}}));
@@ -252,26 +252,26 @@ public class definition {
         put(VK_Q, new KeyMotions("", MOTION_TAP, new int[][]{{974, 438}}));//surf
         put(VK_C, new KeyMotions("", MOTION_TAP, new int[][]{{1239, 51}}));
         put(VK_T, new KeyMotions("", MOTION_TAP, new int[][]{{981, 95}}));
-        put(VK_X, new KeyMotions("", MOTION_TAP, new int[][]{{1110, 228}}));
         put(VK_Y, new KeyMotions("", MOTION_TAP, new int[][]{{981, 148}}));
-        put(VK_U, new KeyMotions("", MOTION_DRAG, new int[][]{{1110 , 238}}));
-        put(VK_I, new KeyMotions("", MOTION_DRAG, new int[][]{{1120 , 228}}));
-        put(VK_O, new KeyMotions("", MOTION_DRAG, new int[][]{{1110 , 218}}));
-        put(VK_P, new KeyMotions("", MOTION_DRAG, new int[][]{{1100 , 228}}));
+//        put(VK_U, new KeyMotions("", MOTION_DRAG, new int[][]{{1110 , 238}}));
+//        put(VK_I, new KeyMotions("", MOTION_DRAG, new int[][]{{1120 , 228}}));
+//        put(VK_O, new KeyMotions("", MOTION_DRAG, new int[][]{{1110 , 218}}));
+//        put(VK_P, new KeyMotions("", MOTION_DRAG, new int[][]{{1100 , 228}}));
         put(VK_EQUAL, new KeyMotions("", MOTION_TAP, new int[][]{{986, 222}}));
         put(VK_ESC, new KeyMotions("", MOTION_TAP, new int[][]{{981, 38}}));
         put(VK_F5, new KeyMotions("", MOTION_TAP, new int[][]{{1047, 227}}));
         put(VK_F4, new KeyMotions("", MOTION_TAP, new int[][]{{921, 41}}));
-        put(BT_LEFT, new KeyMotions("", MOTION_SYNC, new int[][]{{1090, 534}}));
-        put(BT_RIGHT, new KeyMotions("", MOTION_SYNC, new int[][]{{1216, 366}}));
+        put(BT_LEFT, new KeyMotions("shoot", MOTION_SYNC, new int[][]{{1090, 534}}));
+        put(BT_RIGHT, new KeyMotions("scope", MOTION_SYNC, new int[][]{{1216, 366}}));
         put(BT_BACK, new KeyMotions("", MOTION_TAP, new int[][]{{1003, 457}}));
-        put(WL_BACK, new KeyMotions("", MOTION_TAP, new int[][]{{696, 622}}));
-        put(WL_FORWARD, new KeyMotions("", MOTION_TAP, new int[][]{{545, 622}}));
+        put(WL_BACK, new KeyMotions("", MOTION_TAP, new int[][]{{710, 620}}));
+        put(WL_FORWARD, new KeyMotions("", MOTION_TAP, new int[][]{{560, 620}}));
         put(MV_CENTER, new KeyMotions("", MOTION_NONE, new int[][]{{259, 528}}));
         put(VIEW_START, new KeyMotions("", MOTION_NONE, new int[][]{{700,200}}));//743, 409
-        put(VK_M, new KeyMotions("free view", MOTION_TRANS, new int[][]{{915,270}}));
-
-
+        put(VK_M, new KeyMotions("eye", MOTION_TRANS, new int[][]{{915,270}}));
+        put(VK_X, new KeyMotions("mark", MOTION_TRANS, new int[][]{{1110, 228}}));
+        put(VK_3, new KeyMotions("armor", MOTION_TRANS, new int[][]{{451, 624}}));
+        put(VK_4, new KeyMotions("props", MOTION_TRANS, new int[][]{{821, 627}}));
     }};
 
     public static HashMap<Integer, KeyMotions> map_pve = new HashMap<>() {{
@@ -314,6 +314,7 @@ public class definition {
         put(VK_SPACE, new KeyMotions("stop", MOTION_SYNC, new int[][]{{1071, 405}}));
         put(VK_G, new KeyMotions("beep", MOTION_SYNC, new int[][]{{1233, 515}}));
         put(VK_F, new KeyMotions("off", MOTION_TAP, new int[][]{{1207, 270}}));
+        put(BT_FORWARD, new KeyMotions("lean out", MOTION_TAP, new int[][]{{1171, 425}}));
     }};
 
 
