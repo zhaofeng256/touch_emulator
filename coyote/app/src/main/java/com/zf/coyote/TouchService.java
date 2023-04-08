@@ -301,9 +301,9 @@ public class TouchService extends Service {
                         }
                     }
                     if (sub_mode == NONE_SUB_MODE)
-                        mouse_timeout = SystemClock.uptimeMillis() + 100;
+                        mouse_timeout = SystemClock.uptimeMillis() + 3000;
                     else
-                        mouse_timeout = SystemClock.uptimeMillis() + 2000;
+                        mouse_timeout = SystemClock.uptimeMillis() + 100;
                 }
                 point_mouse_end.x = param1;
                 point_mouse_end.y = param2;
@@ -501,21 +501,19 @@ public class TouchService extends Service {
                     }
                 }
             }
-        } else if (EventType.TYPE_ALT_LOCATION == type) {
-            int location_type = param1 & 0xFFFF;
-            int key_code = param1 >> 16;
+        } else if (EventType.TYPE_SET_KEY_MOTION == type) {
+            int key_code = param1 & 0xFF;
+            int motion = (param1 >> 8) & 0xFF;
+            int vx = (param1 >> 16) & 0xFF;
+            int vy = (param1 >> 24) & 0xFF;
             int x = param2 & 0xFFFF;
             int y = param2 >> 16;
             Log.d(TAG, "key " + key_code + " x " + x + " y " + y);
             if (x == 0 && y == 0)
                 hash_alter_keys_pos.remove(key_code);
             else
-                hash_alter_keys_pos.put(key_code, new definition.KeyMotions("", MOTION_SYNC, new int[][]{{x, y}}));
-//            if (SUPPLY_LIST == location_type) {
-//            } else if(ALTER_PANEL == location_type) {
-//            }
-
-        } else if (EventType.TYPE_SETTING == type) {
+                hash_alter_keys_pos.put(key_code, new definition.KeyMotions("", motion, new int[][]{{x, y, x+vx, y+vy}}));
+        } else if (EventType.TYPE_SET_WINDOW == type) {
             int x = param2 & 0xFFFF;
             int y = param2 >> 16;
             if (param1 == WINDOW_POS) {

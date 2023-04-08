@@ -1,6 +1,5 @@
 package com.zf.coyote;
 
-import static com.zf.coyote.definition.MotionType.MOTION_DRAG;
 import static com.zf.coyote.definition.MotionType.MOTION_NONE;
 import static com.zf.coyote.definition.MotionType.MOTION_SYNC;
 import static com.zf.coyote.definition.MotionType.MOTION_TAP;
@@ -22,8 +21,8 @@ public class definition {
         public static int TYPE_MOUSE_BUTTON = 2;
         public static int TYPE_MOUSE_WHEEL = 3;
         public static int TYPE_CONTROL = 4;
-        public static int TYPE_ALT_LOCATION = 5;
-        public static int TYPE_SETTING = 6;
+        public static int TYPE_SET_KEY_MOTION = 5;
+        public static int TYPE_SET_WINDOW = 6;
 
     }
 
@@ -71,10 +70,7 @@ public class definition {
         public static int DRIVE_CHOPPER = 2;
         public static int DRIVE_COYOTE = 3;
     }
-    public static class LocationType {
-        public static int SUPPLY_LIST = 0;
-        public static int ALTER_PANEL = 1;
-    }
+
 
     public static class SupplyType {
         public static int SUPPLY_NONE = 0;
@@ -253,10 +249,10 @@ public class definition {
         put(VK_C, new KeyMotions("", MOTION_TAP, new int[][]{{1239, 51}}));
         put(VK_T, new KeyMotions("", MOTION_TAP, new int[][]{{981, 95}}));
         put(VK_Y, new KeyMotions("", MOTION_TAP, new int[][]{{981, 148}}));
-//        put(VK_U, new KeyMotions("", MOTION_DRAG, new int[][]{{1110 , 238}}));
-//        put(VK_I, new KeyMotions("", MOTION_DRAG, new int[][]{{1120 , 228}}));
-//        put(VK_O, new KeyMotions("", MOTION_DRAG, new int[][]{{1110 , 218}}));
-//        put(VK_P, new KeyMotions("", MOTION_DRAG, new int[][]{{1100 , 228}}));
+//        put(VK_U, new KeyMotions("", MOTION_DRAG, new int[][]{{1110, 228, 1110 , 238}}));
+//        put(VK_I, new KeyMotions("", MOTION_DRAG, new int[][]{{1110, 228, 1120 , 228}}));
+//        put(VK_O, new KeyMotions("", MOTION_DRAG, new int[][]{{1110, 228, 1110 , 218}}));
+//        put(VK_P, new KeyMotions("", MOTION_DRAG, new int[][]{{1110, 228, 1100 , 228}}));
         put(VK_EQUAL, new KeyMotions("", MOTION_TAP, new int[][]{{986, 222}}));
         put(VK_ESC, new KeyMotions("", MOTION_TAP, new int[][]{{981, 38}}));
         put(VK_F5, new KeyMotions("", MOTION_TAP, new int[][]{{1047, 227}}));

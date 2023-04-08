@@ -12,6 +12,7 @@ import android.os.IBinder;
 import android.util.Log;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -96,7 +97,7 @@ public class TcpService extends Service {
         }
     };
 
-    public int calc_Checksum(byte[] data, int len) {
+    public static int calc_Checksum(byte[] data, int len) {
 
         int s = 0;
         int i = 0;
@@ -135,18 +136,25 @@ public class TcpService extends Service {
         return sb.toString();
     }
 
-    public static void int_to_buf(int i, byte[] buf, int offset) {
-        byte[] bytes = ByteBuffer.allocate(4).putInt(i).array();
-        System.arraycopy(bytes, 0, buf, offset, 4);
+    public static void int_to_buf(int v, byte[] buf, int offset) {
+        byte[] bs = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(v).array();
+        System.arraycopy(bs, 0, buf, offset, 4);
     }
 
-    public static void sendTcpData(int type, int param1, int param2) {
+    public static void short_to_buf(short v, byte[] buf, int offset) {
+        byte[] bs = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(v).array();
+        System.arraycopy(bs, 0, buf, offset, 2);
+    }
+
+    public static void sendTcpData(int v_id, int v_type, int v_param1, int v_param2) {
         TcpData data = new TcpData();
-        byte [] buf = new byte[data.size];
-        int_to_buf(0, buf, data.offset("id"));
-        buf[data.offset("type")] = (byte)(type & 0xFF);
-        int_to_buf(param1, buf, data.offset("param1"));
-        int_to_buf(param2, buf, data.offset("param2"));
+        byte[] buf = new byte[data.size];
+        int_to_buf(v_id, buf, data.offset(V_ID));
+        buf[data.offset(V_TYPE)] = (byte) (v_type & 0xFF);
+        int_to_buf(v_param1, buf, data.offset(V_PARAM1));
+        int_to_buf(v_param2, buf, data.offset(V_PARAM2));
+        int checksum = calc_Checksum(buf, data.offset(V_CHECKSUM));
+        short_to_buf((short)checksum, buf,  data.offset(V_CHECKSUM));
         TcpClient.send(buf, data.size);
     }
 }

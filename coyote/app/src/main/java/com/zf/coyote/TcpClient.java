@@ -1,9 +1,8 @@
 package com.zf.coyote;
 
-import static com.zf.coyote.TcpService.charToHex;
 import static com.zf.coyote.TcpService.sendTcpData;
 import static com.zf.coyote.TouchService.display_size;
-import static com.zf.coyote.definition.EventType.TYPE_SETTING;
+import static com.zf.coyote.definition.EventType.TYPE_SET_WINDOW;
 
 import android.util.Log;
 
@@ -16,7 +15,6 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
-import java.util.Arrays;
 
 public class TcpClient {
 
@@ -48,7 +46,7 @@ public class TcpClient {
             input_stream = socket.getInputStream();
             output_stream = socket.getOutputStream();
 
-            sendTcpData(TYPE_SETTING, display_size[0], display_size[1]);
+            sendTcpData(0, TYPE_SET_WINDOW, display_size[0], display_size[1]);
 
             while (running) {
                 read_len = input_stream.read(read_buf);
